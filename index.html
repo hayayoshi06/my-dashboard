@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>マイダッシュボード</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html { font-size: 16px; }
+body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Meiryo', sans-serif; background: #f0f4f8; min-height: 100vh; -webkit-text-size-adjust: 100%; color: #1a1a1a; }
+
+.header { background: #1a56db; color: white; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
+.header h1 { font-size: 1.1em; font-weight: bold; }
+.header-sub { font-size: 0.78em; opacity: 0.85; margin-top: 2px; }
+.gear-btn { background: rgba(255,255,255,0.15); border: none; color: white; border-radius: 8px; padding: 8px 12px; font-size: 1em; cursor: pointer; }
+.gear-btn:active { background: rgba(255,255,255,0.3); }
+
+.container { max-width: 760px; margin: 0 auto; padding: 14px; display: grid; gap: 12px; }
+
+.card { background: white; border-radius: 14px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
+.card-title { font-size: 0.95em; font-weight: bold; color: #1a56db; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.card-sub { font-size: 0.78em; color: #888; margin-top: -4px; margin-bottom: 10px; }
+
+/* TODOリストカード */
+.todo-add-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.todo-add-row input {
+  flex: 1; padding: 10px 12px; border: 1.5px solid #d0d9f0; border-radius: 8px;
+  font-size: 0.9em; font-family: inherit; background: #f4f7ff;
+}
+.todo-add-row input[type="date"] { flex: none; width: 150px; }
+.todo-add-row button { white-space: nowrap; }
+.todo-list { display: flex; flex-direction: column; gap: 8px; }
+.todo-item {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  background: #f8f9fa; border-radius: 8px; border: 1px solid #eee;
+  transition: opacity 0.2s, transform 0.2s;
+}
+.todo-item.removing { opacity: 0; transform: translateX(10px); }
+.todo-item input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; accent-color: #1a56db; }
+.todo-main { flex: 1; min-width: 0; }
+.todo-text { font-size: 0.9em; line-height: 1.5; word-break: break-all; }
+.todo-date { font-size: 0.75em; color: #888; margin-top: 2px; }
+.todo-date.overdue { color: #b91c1c; font-weight: bold; }
+.todo-date.today { color: #b45309; font-weight: bold; }
+.todo-del-btn {
+  background: none; border: none; color: #b91c1c; font-size: 1.1em; cursor: pointer;
+  padding: 4px 8px; line-height: 1; font-family: inherit;
+}
+
+/* 日付カード */
+.date-big { font-size: 1.6em; font-weight: bold; color: #1a1a1a; }
+.date-sub { font-size: 0.9em; color: #666; margin-top: 4px; }
+.time-big { font-size: 2.2em; font-weight: bold; color: #1a56db; margin-top: 8px; font-family: monospace; }
+
+/* 天気カード */
+.weather-row { display: flex; align-items: center; gap: 16px; }
+.weather-temp { font-size: 2.4em; font-weight: bold; color: #1a56db; }
+.weather-desc { font-size: 0.95em; color: #444; }
+.weather-meta { font-size: 0.8em; color: #888; margin-top: 4px; }
+.weather-place { font-size: 0.85em; color: #1a56db; font-weight: bold; margin-bottom: 8px; }
+
+/* ニュースカード */
+.news-list { display: flex; flex-direction: column; gap: 8px; }
+.news-item { display: block; padding: 10px 12px; background: #f8f9fa; border-radius: 8px; text-decoration: none; color: #1a1a1a; font-size: 0.88em; line-height: 1.5; border: 1px solid #eee; }
+.news-item:active { background: #eef2f8; }
+.news-item .src { display: block; font-size: 0.75em; color: #1a56db; margin-top: 4px; font-weight: bold; }
+
+/* カレンダーカード */
+.cal-list { display: flex; flex-direction: column; gap: 8px; }
+.cal-item { display: flex; gap: 10px; padding: 8px 10px; background: #f8f9fa; border-radius: 8px; font-size: 0.88em; border-left: 3px solid #1a56db; }
+.cal-time { color: #1a56db; font-weight: bold; min-width: 48px; }
+.btn {
+  -webkit-appearance: none; appearance: none; border: none; border-radius: 10px;
+  padding: 11px 16px; font-size: 0.9em; cursor: pointer; font-weight: bold;
+  font-family: inherit; touch-action: manipulation;
+}
+.btn-primary { background: #1a56db; color: white; }
+.btn-primary:active { background: #1245b5; }
+.btn-secondary { background: #f0f4f8; color: #1a56db; border: 1.5px solid #d0d9f0; }
+.btn-secondary:active { background: #dde8ff; }
+
+.status-msg { font-size: 0.85em; color: #888; padding: 8px 0; }
+.status-msg.error { color: #b91c1c; }
+
+/* 設定パネル */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: flex-end; justify-content: center; z-index: 10; }
+.overlay.open { display: flex; }
+.settings-panel { background: white; width: 100%; max-width: 760px; border-radius: 16px 16px 0 0; padding: 20px 18px 28px; max-height: 85vh; overflow-y: auto; }
+.settings-panel h2 { font-size: 1.05em; margin-bottom: 14px; color: #1a1a1a; }
+.field-group { margin-bottom: 16px; }
+.field-group label { display: block; font-size: 0.82em; font-weight: bold; color: #444; margin-bottom: 6px; }
+.field-group input {
+  width: 100%; padding: 10px 12px; border: 1.5px solid #d0d9f0; border-radius: 8px;
+  font-size: 0.9em; font-family: inherit; background: #f4f7ff;
+}
+.field-hint { font-size: 0.75em; color: #888; margin-top: 4px; line-height: 1.5; }
+.settings-actions { display: flex; gap: 10px; margin-top: 18px; }
+.settings-actions .btn { flex: 1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>マイダッシュボード</h1>
+    <div class="header-sub">自分専用コントロールパネル</div>
+  </div>
+  <button class="gear-btn" onclick="openSettings()">⚙ 設定</button>
+</div>
+
+<div class="container">
+
+  <!-- TODOリスト -->
+  <div class="card">
+    <div class="card-title">✅ TODOリスト</div>
+    <div class="todo-add-row">
+      <input type="text" id="todoInput" placeholder="やることを入力…">
+    </div>
+    <div class="todo-add-row">
+      <input type="date" id="todoDateInput">
+      <button class="btn btn-primary" onclick="addTodo()">追加</button>
+    </div>
+    <div class="todo-list" id="todoList"></div>
+  </div>
+
+  <!-- 日付・時刻 -->
+  <div class="card">
+    <div class="card-title">📅 今日</div>
+    <div class="date-big" id="dateBig">-</div>
+    <div class="date-sub" id="dateSub">-</div>
+    <div class="time-big" id="timeBig">--:--:--</div>
+  </div>
+
+  <!-- 天気 -->
+  <div class="card">
+    <div class="card-title">☀️ 天気</div>
+    <div class="weather-place" id="weatherPlace">現在地を取得中…</div>
+    <div id="weatherBody"><div class="status-msg">読み込み中…</div></div>
+  </div>
+
+  <!-- 世界情勢 -->
+  <div class="card">
+    <div class="card-title">🌍 世界情勢（ニュース見出し）</div>
+    <div class="card-sub">海外主要ニュースの見出し</div>
+    <div id="worldNewsBody"><div class="status-msg">読み込み中…</div></div>
+  </div>
+
+  <!-- AI情報 -->
+  <div class="card">
+    <div class="card-title">🤖 AI関連ニュース</div>
+    <div class="card-sub">Hacker News より AI 関連の話題</div>
+    <div id="aiNewsBody"><div class="status-msg">読み込み中…</div></div>
+  </div>
+
+  <!-- カレンダー -->
+  <div class="card">
+    <div class="card-title">🗓 今日の予定（Googleカレンダー）</div>
+    <div id="calendarBody">
+      <div class="status-msg">設定からGoogleカレンダーとの連携を行ってください</div>
+      <button class="btn btn-primary" id="calConnectBtn" style="margin-top:8px;" onclick="connectCalendar()">Googleカレンダーに接続</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- 設定パネル -->
+<div class="overlay" id="settingsOverlay">
+  <div class="settings-panel">
+    <h2>⚙ 設定</h2>
+
+    <div class="field-group">
+      <label>地域を手動設定（位置情報が使えない場合）</label>
+      <input type="text" id="cityInput" placeholder="例：Tokyo, Osaka, New York">
+      <div class="field-hint">
+        天気は通常ブラウザの位置情報から現在地を自動取得します。位置情報の利用を許可できない場合は、ここで都市名を指定すると手動設定が優先されます。
+      </div>
+    </div>
+    <button class="btn btn-secondary" onclick="searchCity()">地域を検索して保存</button>
+    <button class="btn btn-secondary" onclick="clearManualLocation()">手動設定を解除（現在地に戻す）</button>
+    <div class="status-msg" id="citySearchStatus"></div>
+
+    <hr style="margin:18px 0; border:none; border-top:1px solid #eee;">
+
+    <div class="field-group">
+      <label>Google OAuth クライアントID</label>
+      <input type="text" id="gClientId" placeholder="xxxxxxxx.apps.googleusercontent.com">
+    </div>
+    <div class="field-group">
+      <label>Google API キー</label>
+      <input type="text" id="gApiKey" placeholder="AIza...">
+      <div class="field-hint">
+        Google Cloud Console で OAuth クライアントID と APIキーを発行し、Calendar API を有効化してください。
+        ここで入力した値はこのブラウザの localStorage にのみ保存され、リポジトリには保存されません。
+      </div>
+    </div>
+    <button class="btn btn-secondary" onclick="saveGoogleSettings()">Google設定を保存</button>
+    <div class="status-msg" id="googleSettingsStatus"></div>
+
+    <div class="settings-actions">
+      <button class="btn btn-secondary" onclick="closeSettings()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://apis.google.com/js/api.js" async defer></script>
+<script>
+// ========== 共通：localStorage設定 ==========
+var STORE_KEY = 'dashboardSettings';
+
+function loadSettings() {
+  try {
+    return JSON.parse(localStorage.getItem(STORE_KEY)) || {};
+  } catch (e) {
+    return {};
+  }
+}
+function saveSettings(patch) {
+  var cur = loadSettings();
+  Object.assign(cur, patch);
+  localStorage.setItem(STORE_KEY, JSON.stringify(cur));
+  return cur;
+}
+
+function openSettings() {
+  var s = loadSettings();
+  document.getElementById('cityInput').value = (s.location && s.location.name) || '';
+  document.getElementById('gClientId').value = s.googleClientId || '';
+  document.getElementById('gApiKey').value = s.googleApiKey || '';
+  document.getElementById('citySearchStatus').textContent = '';
+  document.getElementById('googleSettingsStatus').textContent = '';
+  document.getElementById('settingsOverlay').classList.add('open');
+}
+function closeSettings() {
+  document.getElementById('settingsOverlay').classList.remove('open');
+}
+
+// ========== TODOリスト ==========
+var TODO_KEY = 'dashboardTodos';
+
+function loadTodos() {
+  try {
+    return JSON.parse(localStorage.getItem(TODO_KEY)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+function saveTodos(todos) {
+  localStorage.setItem(TODO_KEY, JSON.stringify(todos));
+}
+
+function formatDueDate(dateStr) {
+  var d = new Date(dateStr + 'T00:00:00');
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var diffDays = Math.round((d - today) / 86400000);
+  var label = (d.getMonth() + 1) + '/' + d.getDate() + '（' + weekdaysJa[d.getDay()] + '）';
+  var cls = '';
+  if (diffDays < 0) { label = '期限切れ：' + label; cls = 'overdue'; }
+  else if (diffDays === 0) { label = '今日が期限：' + label; cls = 'today'; }
+  else { label = '期限：' + label; }
+  return { label: label, cls: cls };
+}
+
+function sortedTodos() {
+  var todos = loadTodos();
+  var withDate = todos.filter(function(t) { return t.dueDate; })
+    .sort(function(a, b) { return a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0; });
+  var withoutDate = todos.filter(function(t) { return !t.dueDate; });
+  return withDate.concat(withoutDate);
+}
+
+function renderTodos() {
+  var todos = sortedTodos();
+  var listEl = document.getElementById('todoList');
+  if (todos.length === 0) {
+    listEl.innerHTML = '<div class="status-msg">タスクはありません</div>';
+    return;
+  }
+  listEl.innerHTML = todos.map(function(t) {
+    var dateHtml = '';
+    if (t.dueDate) {
+      var info = formatDueDate(t.dueDate);
+      dateHtml = '<div class="todo-date' + (info.cls ? ' ' + info.cls : '') + '">' + info.label + '</div>';
+    }
+    return '<div class="todo-item" data-id="' + t.id + '">' +
+      '<input type="checkbox" onchange="completeTodo(' + t.id + ')">' +
+      '<div class="todo-main">' +
+        '<div class="todo-text">' + escHtml(t.text) + '</div>' +
+        dateHtml +
+      '</div>' +
+      '<button class="todo-del-btn" onclick="deleteTodo(' + t.id + ')">✕</button>' +
+    '</div>';
+  }).join('');
+}
+
+function addTodo() {
+  var input = document.getElementById('todoInput');
+  var dateInput = document.getElementById('todoDateInput');
+  var text = input.value.trim();
+  if (!text) return;
+  var todos = loadTodos();
+  todos.push({ id: Date.now(), text: text, dueDate: dateInput.value || null });
+  saveTodos(todos);
+  input.value = '';
+  dateInput.value = '';
+  renderTodos();
+}
+
+// チェックを入れたら完了として一覧から消す
+function completeTodo(id) {
+  var el = document.querySelector('.todo-item[data-id="' + id + '"]');
+  if (el) el.classList.add('removing');
+  setTimeout(function() { deleteTodo(id); }, 200);
+}
+
+function deleteTodo(id) {
+  var todos = loadTodos().filter(function(x) { return x.id !== id; });
+  saveTodos(todos);
+  renderTodos();
+}
+
+document.getElementById('todoInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') addTodo();
+});
+
+// ========== 日付・時刻 ==========
+var weekdaysJa = ['日', '月', '火', '水', '木', '金', '土'];
+function updateClock() {
+  var now = new Date();
+  document.getElementById('dateBig').textContent =
+    now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日';
+  document.getElementById('dateSub').textContent =
+    '（' + weekdaysJa[now.getDay()] + '曜日）';
+  var hh = String(now.getHours()).padStart(2, '0');
+  var mm = String(now.getMinutes()).padStart(2, '0');
+  var ss = String(now.getSeconds()).padStart(2, '0');
+  document.getElementById('timeBig').textContent = hh + ':' + mm + ':' + ss;
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+// ========== 天気（Open-Meteo：APIキー不要） ==========
+var weatherCodeMap = {
+  0: '快晴', 1: '晴れ', 2: '一部曇り', 3: '曇り',
+  45: '霧', 48: '霧（霜）',
+  51: '弱い霧雨', 53: '霧雨', 55: '強い霧雨',
+  61: '弱い雨', 63: '雨', 65: '強い雨',
+  71: '弱い雪', 73: '雪', 75: '強い雪',
+  80: 'にわか雨（弱）', 81: 'にわか雨', 82: 'にわか雨（強）',
+  95: '雷雨', 96: '雷雨（雹）', 99: '雷雨（強い雹）'
+};
+
+async function searchCity() {
+  var city = document.getElementById('cityInput').value.trim();
+  var statusEl = document.getElementById('citySearchStatus');
+  if (!city) { statusEl.textContent = '都市名を入力してください'; statusEl.className = 'status-msg error'; return; }
+  statusEl.textContent = '検索中…';
+  statusEl.className = 'status-msg';
+  try {
+    var url = 'https://geocoding-api.open-meteo.com/v1/search?count=1&language=ja&name=' + encodeURIComponent(city);
+    var res = await fetch(url);
+    var data = await res.json();
+    if (!data.results || data.results.length === 0) {
+      statusEl.textContent = '地域が見つかりませんでした';
+      statusEl.className = 'status-msg error';
+      return;
+    }
+    var r = data.results[0];
+    var loc = { name: r.name + (r.country ? '（' + r.country + '）' : ''), lat: r.latitude, lon: r.longitude };
+    saveSettings({ location: loc });
+    statusEl.textContent = '保存しました：' + loc.name;
+    statusEl.className = 'status-msg';
+    loadWeather();
+  } catch (e) {
+    statusEl.textContent = '検索に失敗しました：' + e.message;
+    statusEl.className = 'status-msg error';
+  }
+}
+
+function clearManualLocation() {
+  saveSettings({ location: null });
+  document.getElementById('cityInput').value = '';
+  document.getElementById('citySearchStatus').textContent = '手動設定を解除しました。現在地から取得します';
+  document.getElementById('citySearchStatus').className = 'status-msg';
+  loadWeather();
+}
+
+async function reverseGeocode(lat, lon) {
+  try {
+    var url = 'https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=' + lat +
+      '&longitude=' + lon + '&localityLanguage=ja';
+    var res = await fetch(url);
+    var data = await res.json();
+    return data.locality || data.city || data.principalSubdivision || '現在地';
+  } catch (e) {
+    return '現在地';
+  }
+}
+
+async function renderWeather(lat, lon, placeName) {
+  var placeEl = document.getElementById('weatherPlace');
+  var bodyEl = document.getElementById('weatherBody');
+  placeEl.textContent = '📍 ' + placeName;
+  bodyEl.innerHTML = '<div class="status-msg">読み込み中…</div>';
+  try {
+    var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat +
+      '&longitude=' + lon +
+      '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m' +
+      '&daily=temperature_2m_max,temperature_2m_min&timezone=auto';
+    var res = await fetch(url);
+    var data = await res.json();
+    var cur = data.current;
+    var desc = weatherCodeMap[cur.weather_code] || '不明';
+    var maxT = data.daily.temperature_2m_max[0];
+    var minT = data.daily.temperature_2m_min[0];
+    bodyEl.innerHTML =
+      '<div class="weather-row">' +
+        '<div class="weather-temp">' + Math.round(cur.temperature_2m) + '℃</div>' +
+        '<div>' +
+          '<div class="weather-desc">' + desc + '</div>' +
+          '<div class="weather-meta">最高 ' + Math.round(maxT) + '℃ / 最低 ' + Math.round(minT) + '℃</div>' +
+          '<div class="weather-meta">湿度 ' + cur.relative_humidity_2m + '% ／ 風速 ' + cur.wind_speed_10m + 'm/s</div>' +
+        '</div>' +
+      '</div>';
+  } catch (e) {
+    bodyEl.innerHTML = '<div class="status-msg error">天気の取得に失敗しました：' + e.message + '</div>';
+  }
+}
+
+function loadWeather() {
+  var s = loadSettings();
+
+  // 手動設定が優先
+  if (s.location) {
+    renderWeather(s.location.lat, s.location.lon, s.location.name);
+    return;
+  }
+
+  var placeEl = document.getElementById('weatherPlace');
+  var bodyEl = document.getElementById('weatherBody');
+
+  if (!navigator.geolocation) {
+    placeEl.textContent = '現在地を取得できません';
+    bodyEl.innerHTML = '<div class="status-msg error">このブラウザは位置情報に対応していません。設定から地域を手動で入力してください</div>';
+    return;
+  }
+
+  placeEl.textContent = '現在地を取得中…';
+  bodyEl.innerHTML = '<div class="status-msg">位置情報の利用を許可すると天気が表示されます</div>';
+
+  navigator.geolocation.getCurrentPosition(
+    async function(pos) {
+      var lat = pos.coords.latitude;
+      var lon = pos.coords.longitude;
+      var placeName = await reverseGeocode(lat, lon);
+      renderWeather(lat, lon, placeName + '（現在地）');
+    },
+    function(err) {
+      placeEl.textContent = '現在地を取得できませんでした';
+      bodyEl.innerHTML = '<div class="status-msg error">位置情報の取得が許可されませんでした（' + err.message + '）。設定から地域を手動で入力してください</div>';
+    },
+    { enableHighAccuracy: false, timeout: 10000, maximumAge: 600000 }
+  );
+}
+
+// ========== 世界情勢ニュース（rss2json経由でBBC World RSSを取得：キー不要・CORS対応） ==========
+async function loadWorldNews() {
+  var bodyEl = document.getElementById('worldNewsBody');
+  try {
+    var rssUrl = 'https://feeds.bbci.co.uk/news/world/rss.xml';
+    var res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl));
+    var data = await res.json();
+    var items = (data.items || []).slice(0, 6);
+    if (items.length === 0) {
+      bodyEl.innerHTML = '<div class="status-msg">ニュースが見つかりませんでした</div>';
+      return;
+    }
+    bodyEl.innerHTML = '<div class="news-list">' +
+      items.map(function(a) {
+        return '<a class="news-item" href="' + a.link + '" target="_blank" rel="noopener noreferrer">' +
+          escHtml(a.title) +
+          '<span class="src">BBC News</span>' +
+        '</a>';
+      }).join('') +
+      '</div>';
+  } catch (e) {
+    bodyEl.innerHTML = '<div class="status-msg error">ニュースの取得に失敗しました：' + e.message + '</div>';
+  }
+}
+
+// ========== AI関連ニュース（Hacker News Algolia：キー不要・CORS対応） ==========
+async function loadAiNews() {
+  var bodyEl = document.getElementById('aiNewsBody');
+  try {
+    var url = 'https://hn.algolia.com/api/v1/search?query=AI&tags=story&hitsPerPage=6';
+    var res = await fetch(url);
+    var data = await res.json();
+    var hits = (data.hits || []).filter(function(h) { return h.title && h.url; }).slice(0, 6);
+    if (hits.length === 0) {
+      bodyEl.innerHTML = '<div class="status-msg">記事が見つかりませんでした</div>';
+      return;
+    }
+    bodyEl.innerHTML = '<div class="news-list">' +
+      hits.map(function(h) {
+        return '<a class="news-item" href="' + h.url + '" target="_blank" rel="noopener noreferrer">' +
+          escHtml(h.title) +
+          '<span class="src">Hacker News ・ ' + h.points + 'pt</span>' +
+        '</a>';
+      }).join('') +
+      '</div>';
+  } catch (e) {
+    bodyEl.innerHTML = '<div class="status-msg error">記事の取得に失敗しました：' + e.message + '</div>';
+  }
+}
+
+// ========== Googleカレンダー連携 ==========
+var gTokenClient = null;
+var gapiInited = false;
+var gisInited = false;
+
+function saveGoogleSettings() {
+  var clientId = document.getElementById('gClientId').value.trim();
+  var apiKey = document.getElementById('gApiKey').value.trim();
+  var statusEl = document.getElementById('googleSettingsStatus');
+  if (!clientId || !apiKey) {
+    statusEl.textContent = 'クライアントIDとAPIキーの両方を入力してください';
+    statusEl.className = 'status-msg error';
+    return;
+  }
+  saveSettings({ googleClientId: clientId, googleApiKey: apiKey });
+  statusEl.textContent = '保存しました';
+  statusEl.className = 'status-msg';
+}
+
+function initGapiClient() {
+  var s = loadSettings();
+  if (!s.googleApiKey) return;
+  gapi.client.init({
+    apiKey: s.googleApiKey,
+    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']
+  }).then(function() { gapiInited = true; });
+}
+
+window.addEventListener('load', function() {
+  var tryInitGapi = setInterval(function() {
+    if (window.gapi) {
+      clearInterval(tryInitGapi);
+      gapi.load('client', initGapiClient);
+    }
+  }, 300);
+});
+
+function connectCalendar() {
+  var s = loadSettings();
+  var bodyEl = document.getElementById('calendarBody');
+  if (!s.googleClientId || !s.googleApiKey) {
+    bodyEl.innerHTML = '<div class="status-msg error">先に設定からGoogleクライアントID／APIキーを登録してください</div>' +
+      '<button class="btn btn-primary" style="margin-top:8px;" onclick="openSettings()">設定を開く</button>';
+    return;
+  }
+  if (!window.google || !window.gapi) {
+    bodyEl.innerHTML = '<div class="status-msg error">Google APIの読み込み中です。少し待って再度お試しください</div>' +
+      '<button class="btn btn-primary" style="margin-top:8px;" onclick="connectCalendar()">再試行</button>';
+    return;
+  }
+  if (!gTokenClient) {
+    gTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: s.googleClientId,
+      scope: 'https://www.googleapis.com/auth/calendar.readonly',
+      callback: function(resp) {
+        if (resp.error) {
+          bodyEl.innerHTML = '<div class="status-msg error">認証に失敗しました：' + resp.error + '</div>';
+          return;
+        }
+        loadTodayEvents();
+      }
+    });
+  }
+  gTokenClient.requestAccessToken();
+}
+
+async function loadTodayEvents() {
+  var bodyEl = document.getElementById('calendarBody');
+  bodyEl.innerHTML = '<div class="status-msg">予定を読み込み中…</div>';
+  try {
+    var now = new Date();
+    var startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    var endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    var resp = await gapi.client.calendar.events.list({
+      calendarId: 'primary',
+      timeMin: startOfDay.toISOString(),
+      timeMax: endOfDay.toISOString(),
+      singleEvents: true,
+      orderBy: 'startTime'
+    });
+    var items = resp.result.items || [];
+    if (items.length === 0) {
+      bodyEl.innerHTML = '<div class="status-msg">今日の予定はありません</div>';
+      return;
+    }
+    bodyEl.innerHTML = '<div class="cal-list">' +
+      items.map(function(ev) {
+        var start = ev.start.dateTime
+          ? new Date(ev.start.dateTime).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })
+          : '終日';
+        return '<div class="cal-item"><div class="cal-time">' + start + '</div><div>' + escHtml(ev.summary || '（無題）') + '</div></div>';
+      }).join('') +
+      '</div>';
+  } catch (e) {
+    bodyEl.innerHTML = '<div class="status-msg error">予定の取得に失敗しました：' + (e.message || JSON.stringify(e)) + '</div>';
+  }
+}
+
+// ========== ユーティリティ ==========
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// ========== 初期化 ==========
+renderTodos();
+loadWeather();
+loadWorldNews();
+loadAiNews();
+</script>
+</body>
+</html>
