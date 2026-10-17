@@ -157,14 +157,14 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
   <!-- 世界情勢 -->
   <div class="card">
     <div class="card-title">🌍 世界情勢（ニュース見出し）</div>
-    <div class="card-sub">NHKニュース（国際）</div>
+    <div class="card-sub">Google ニュース（国際）</div>
     <div id="worldNewsBody"><div class="status-msg">読み込み中…</div></div>
   </div>
 
   <!-- AI情報 -->
   <div class="card">
     <div class="card-title">🤖 AI関連ニュース</div>
-    <div class="card-sub">ITmedia AI+ の最新記事</div>
+    <div class="card-sub">Google ニュース（「AI」検索）</div>
     <div id="aiNewsBody"><div class="status-msg">読み込み中…</div></div>
   </div>
 
@@ -474,11 +474,18 @@ function loadWeather() {
   );
 }
 
-// ========== 世界情勢ニュース（rss2json経由でNHKニュース「国際」RSSを取得：キー不要・CORS対応） ==========
+// Google NewsのRSSタイトルは「見出し - 配信元」形式なので分離する
+function splitGoogleNewsTitle(title) {
+  var idx = title.lastIndexOf(' - ');
+  if (idx === -1) return { headline: title, source: 'Google ニュース' };
+  return { headline: title.slice(0, idx), source: title.slice(idx + 3) };
+}
+
+// ========== 世界情勢ニュース（rss2json経由でGoogleニュース「国際」RSSを取得：アカウント登録不要・CORS対応） ==========
 async function loadWorldNews() {
   var bodyEl = document.getElementById('worldNewsBody');
   try {
-    var rssUrl = 'https://www.nhk.or.jp/rss/news/cat6.xml';
+    var rssUrl = 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=ja&gl=JP&ceid=JP:ja';
     var res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl));
     var data = await res.json();
     var items = (data.items || []).slice(0, 6);
@@ -488,9 +495,10 @@ async function loadWorldNews() {
     }
     bodyEl.innerHTML = '<div class="news-list">' +
       items.map(function(a) {
+        var parsed = splitGoogleNewsTitle(a.title);
         return '<a class="news-item" href="' + a.link + '" target="_blank" rel="noopener noreferrer">' +
-          escHtml(a.title) +
-          '<span class="src">NHKニュース</span>' +
+          escHtml(parsed.headline) +
+          '<span class="src">' + escHtml(parsed.source) + '</span>' +
         '</a>';
       }).join('') +
       '</div>';
@@ -499,11 +507,11 @@ async function loadWorldNews() {
   }
 }
 
-// ========== AI関連ニュース（rss2json経由でITmedia AI+ RSSを取得：キー不要・CORS対応） ==========
+// ========== AI関連ニュース（rss2json経由でGoogleニュースの「AI」検索RSSを取得：アカウント登録不要・CORS対応） ==========
 async function loadAiNews() {
   var bodyEl = document.getElementById('aiNewsBody');
   try {
-    var rssUrl = 'https://rss.itmedia.co.jp/rss/2.0/aiplus.xml';
+    var rssUrl = 'https://news.google.com/rss/search?q=AI&hl=ja&gl=JP&ceid=JP:ja';
     var res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl));
     var data = await res.json();
     var items = (data.items || []).slice(0, 6);
@@ -513,9 +521,10 @@ async function loadAiNews() {
     }
     bodyEl.innerHTML = '<div class="news-list">' +
       items.map(function(a) {
+        var parsed = splitGoogleNewsTitle(a.title);
         return '<a class="news-item" href="' + a.link + '" target="_blank" rel="noopener noreferrer">' +
-          escHtml(a.title) +
-          '<span class="src">ITmedia AI+</span>' +
+          escHtml(parsed.headline) +
+          '<span class="src">' + escHtml(parsed.source) + '</span>' +
         '</a>';
       }).join('') +
       '</div>';
