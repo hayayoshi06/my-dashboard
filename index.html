@@ -498,7 +498,6 @@ async function loadWorldNews() {
         var parsed = splitGoogleNewsTitle(a.title);
         return '<a class="news-item" href="' + a.link + '" target="_blank" rel="noopener noreferrer">' +
           escHtml(parsed.headline) +
-          '<span class="src">' + escHtml(parsed.source) + '</span>' +
         '</a>';
       }).join('') +
       '</div>';
@@ -524,7 +523,6 @@ async function loadAiNews() {
         var parsed = splitGoogleNewsTitle(a.title);
         return '<a class="news-item" href="' + a.link + '" target="_blank" rel="noopener noreferrer">' +
           escHtml(parsed.headline) +
-          '<span class="src">' + escHtml(parsed.source) + '</span>' +
         '</a>';
       }).join('') +
       '</div>';
