@@ -118,19 +118,6 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 
 <div class="container">
 
-  <!-- TODOリスト -->
-  <div class="card">
-    <div class="card-title">✅ TODOリスト</div>
-    <div class="todo-add-row">
-      <input type="text" id="todoInput" placeholder="やることを入力…">
-    </div>
-    <div class="todo-add-row">
-      <input type="date" id="todoDateInput">
-      <button class="btn btn-primary" onclick="addTodo()">追加</button>
-    </div>
-    <div class="todo-list" id="todoList"></div>
-  </div>
-
   <!-- 日付・カレンダー -->
   <div class="row-2col">
     <div class="card">
@@ -145,6 +132,19 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
         <button class="btn btn-primary" id="calConnectBtn" style="margin-top:8px;" onclick="connectCalendar()">Googleカレンダーに接続</button>
       </div>
     </div>
+  </div>
+
+  <!-- TODOリスト -->
+  <div class="card">
+    <div class="card-title">✅ TODOリスト</div>
+    <div class="todo-add-row">
+      <input type="text" id="todoInput" placeholder="やることを入力…">
+    </div>
+    <div class="todo-add-row">
+      <input type="date" id="todoDateInput">
+      <button class="btn btn-primary" onclick="addTodo()">追加</button>
+    </div>
+    <div class="todo-list" id="todoList"></div>
   </div>
 
   <!-- 天気 -->
