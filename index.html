@@ -50,7 +50,6 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 /* 日付カード */
 .date-big { font-size: 1.6em; font-weight: bold; color: #1a1a1a; }
 .date-sub { font-size: 0.9em; color: #666; margin-top: 4px; }
-.time-big { font-size: 2.2em; font-weight: bold; color: #1a56db; margin-top: 8px; font-family: monospace; }
 
 /* 天気カード */
 .weather-row { display: flex; align-items: center; gap: 16px; }
@@ -123,12 +122,10 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
     <div class="todo-list" id="todoList"></div>
   </div>
 
-  <!-- 日付・時刻 -->
+  <!-- 日付 -->
   <div class="card">
-    <div class="card-title">📅 今日</div>
     <div class="date-big" id="dateBig">-</div>
     <div class="date-sub" id="dateSub">-</div>
-    <div class="time-big" id="timeBig">--:--:--</div>
   </div>
 
   <!-- 天気 -->
@@ -324,7 +321,7 @@ document.getElementById('todoInput').addEventListener('keydown', function(e) {
   if (e.key === 'Enter') addTodo();
 });
 
-// ========== 日付・時刻 ==========
+// ========== 日付 ==========
 var weekdaysJa = ['日', '月', '火', '水', '木', '金', '土'];
 function updateClock() {
   var now = new Date();
@@ -332,12 +329,8 @@ function updateClock() {
     now.getFullYear() + '年' + (now.getMonth() + 1) + '月' + now.getDate() + '日';
   document.getElementById('dateSub').textContent =
     '（' + weekdaysJa[now.getDay()] + '曜日）';
-  var hh = String(now.getHours()).padStart(2, '0');
-  var mm = String(now.getMinutes()).padStart(2, '0');
-  var ss = String(now.getSeconds()).padStart(2, '0');
-  document.getElementById('timeBig').textContent = hh + ':' + mm + ':' + ss;
 }
-setInterval(updateClock, 1000);
+setInterval(updateClock, 60000);
 updateClock();
 
 // ========== 天気（Open-Meteo：APIキー不要） ==========
