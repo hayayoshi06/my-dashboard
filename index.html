@@ -629,11 +629,12 @@ async function loadIdeas() {
     var res = await fetch('ideas.json?t=' + Date.now());
     if (!res.ok) throw new Error('ideas.json が見つかりません');
     var ideas = await res.json();
-    if (!ideas || ideas.length === 0) {
-      bodyEl.innerHTML = '<div class="status-msg">まだ改善アイデアはありません</div>';
+    var active = (ideas || []).filter(function(idea) { return !idea.done; });
+    if (active.length === 0) {
+      bodyEl.innerHTML = '<div class="status-msg">対応中の改善アイデアはありません</div>';
       return;
     }
-    var sorted = ideas.slice()
+    var sorted = active.slice()
       .sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; })
       .slice(0, 5);
     bodyEl.innerHTML = '<div class="idea-list">' +
