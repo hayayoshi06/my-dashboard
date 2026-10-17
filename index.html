@@ -16,6 +16,8 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .gear-btn:active { background: rgba(255,255,255,0.3); }
 
 .container { max-width: 760px; margin: 0 auto; padding: 14px; display: grid; gap: 12px; }
+.row-2col { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.row-2col .card { margin: 0; }
 
 .card { background: white; border-radius: 14px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
 .card-title { font-size: 0.95em; font-weight: bold; color: #1a56db; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
@@ -129,10 +131,20 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
     <div class="todo-list" id="todoList"></div>
   </div>
 
-  <!-- 日付 -->
-  <div class="card">
-    <div class="date-big" id="dateBig">-</div>
-    <div class="date-sub" id="dateSub">-</div>
+  <!-- 日付・カレンダー -->
+  <div class="row-2col">
+    <div class="card">
+      <div class="date-big" id="dateBig">-</div>
+      <div class="date-sub" id="dateSub">-</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">🗓 今日の予定（Googleカレンダー）</div>
+      <div id="calendarBody">
+        <div class="status-msg">設定からGoogleカレンダーとの連携を行ってください</div>
+        <button class="btn btn-primary" id="calConnectBtn" style="margin-top:8px;" onclick="connectCalendar()">Googleカレンダーに接続</button>
+      </div>
+    </div>
   </div>
 
   <!-- 天気 -->
@@ -154,15 +166,6 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
     <div class="card-title">🤖 AI関連ニュース</div>
     <div class="card-sub">ITmedia AI+ の最新記事</div>
     <div id="aiNewsBody"><div class="status-msg">読み込み中…</div></div>
-  </div>
-
-  <!-- カレンダー -->
-  <div class="card">
-    <div class="card-title">🗓 今日の予定（Googleカレンダー）</div>
-    <div id="calendarBody">
-      <div class="status-msg">設定からGoogleカレンダーとの連携を行ってください</div>
-      <button class="btn btn-primary" id="calConnectBtn" style="margin-top:8px;" onclick="connectCalendar()">Googleカレンダーに接続</button>
-    </div>
   </div>
 
   <!-- 改善アイデア -->
