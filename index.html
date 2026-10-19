@@ -366,7 +366,8 @@ function deleteTodo(id) {
 }
 
 document.getElementById('todoInput').addEventListener('keydown', function(e) {
-  if (e.key === 'Enter') addTodo();
+  // IME変換確定のEnter（isComposing、またはkeyCode 229）では送信しない
+  if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) addTodo();
 });
 
 // ========== 日付 ==========
