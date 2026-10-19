@@ -24,12 +24,13 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .card-sub { font-size: 0.78em; color: #888; margin-top: -4px; margin-bottom: 10px; }
 
 /* TODOリストカード */
-.todo-add-row { display: flex; gap: 8px; margin-bottom: 10px; }
-.todo-add-row input {
+.todo-add-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.todo-add-row input, .todo-add-row select {
   flex: 1; padding: 10px 12px; border: 1.5px solid #d0d9f0; border-radius: 8px;
   font-size: 0.9em; font-family: inherit; background: #f4f7ff;
 }
 .todo-add-row input[type="date"] { flex: none; width: 150px; }
+.todo-add-row select#todoPriorityInput { flex: none; width: 90px; }
 .todo-add-row button { white-space: nowrap; }
 .todo-list { display: flex; flex-direction: column; gap: 8px; }
 .todo-item {
@@ -40,7 +41,14 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .todo-item.removing { opacity: 0; transform: translateX(10px); }
 .todo-item input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; accent-color: #1a56db; }
 .todo-main { flex: 1; min-width: 0; }
-.todo-text { font-size: 0.9em; line-height: 1.5; word-break: break-all; }
+.todo-text { font-size: 0.9em; line-height: 1.5; word-break: break-all; display: inline; }
+.todo-priority {
+  display: inline-block; font-size: 0.7em; font-weight: bold; padding: 2px 8px;
+  border-radius: 10px; margin-right: 6px; vertical-align: middle;
+}
+.todo-priority.high { background: #fee2e2; color: #b91c1c; }
+.todo-priority.mid { background: #fef9e7; color: #b45309; }
+.todo-priority.low { background: #e8f0fe; color: #1a56db; }
 .todo-date { font-size: 0.75em; color: #888; margin-top: 2px; }
 .todo-date.overdue { color: #b91c1c; font-weight: bold; }
 .todo-date.today { color: #b45309; font-weight: bold; }
@@ -145,6 +153,11 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       <input type="text" id="todoInput" placeholder="やることを入力…">
     </div>
     <div class="todo-add-row">
+      <select id="todoPriorityInput">
+        <option value="high">高</option>
+        <option value="mid" selected>中</option>
+        <option value="low">低</option>
+      </select>
       <input type="date" id="todoDateInput">
       <button class="btn btn-primary" onclick="addTodo()">追加</button>
     </div>
@@ -280,11 +293,22 @@ function formatDueDate(dateStr) {
   return { label: label, cls: cls };
 }
 
+var PRIORITY_WEIGHT = { high: 0, mid: 1, low: 2 };
+var PRIORITY_LABEL = { high: '高', mid: '中', low: '低' };
+
+function priorityWeight(t) {
+  return PRIORITY_WEIGHT.hasOwnProperty(t.priority) ? PRIORITY_WEIGHT[t.priority] : PRIORITY_WEIGHT.mid;
+}
+
 function sortedTodos() {
   var todos = loadTodos();
+  var byPriority = function(a, b) { return priorityWeight(a) - priorityWeight(b); };
   var withDate = todos.filter(function(t) { return t.dueDate; })
-    .sort(function(a, b) { return a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0; });
-  var withoutDate = todos.filter(function(t) { return !t.dueDate; });
+    .sort(function(a, b) {
+      if (a.dueDate !== b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
+      return byPriority(a, b);
+    });
+  var withoutDate = todos.filter(function(t) { return !t.dueDate; }).sort(byPriority);
   return withDate.concat(withoutDate);
 }
 
@@ -301,10 +325,12 @@ function renderTodos() {
       var info = formatDueDate(t.dueDate);
       dateHtml = '<div class="todo-date' + (info.cls ? ' ' + info.cls : '') + '">' + info.label + '</div>';
     }
+    var priorityKey = PRIORITY_LABEL.hasOwnProperty(t.priority) ? t.priority : 'mid';
+    var priorityHtml = '<span class="todo-priority ' + priorityKey + '">' + PRIORITY_LABEL[priorityKey] + '</span>';
     return '<div class="todo-item" data-id="' + t.id + '">' +
       '<input type="checkbox" onchange="completeTodo(' + t.id + ')">' +
       '<div class="todo-main">' +
-        '<div class="todo-text">' + escHtml(t.text) + '</div>' +
+        '<div class="todo-text">' + priorityHtml + escHtml(t.text) + '</div>' +
         dateHtml +
       '</div>' +
       '<button class="todo-del-btn" onclick="deleteTodo(' + t.id + ')">✕</button>' +
@@ -315,10 +341,11 @@ function renderTodos() {
 function addTodo() {
   var input = document.getElementById('todoInput');
   var dateInput = document.getElementById('todoDateInput');
+  var priorityInput = document.getElementById('todoPriorityInput');
   var text = input.value.trim();
   if (!text) return;
   var todos = loadTodos();
-  todos.push({ id: Date.now(), text: text, dueDate: dateInput.value || null });
+  todos.push({ id: Date.now(), text: text, dueDate: dateInput.value || null, priority: priorityInput.value });
   saveTodos(todos);
   input.value = '';
   dateInput.value = '';
