@@ -74,8 +74,12 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 /* 改善アイデアカード */
 .idea-list { display: flex; flex-direction: column; gap: 10px; }
 .idea-item { padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 3px solid #f59e0b; }
-.idea-date { font-size: 0.72em; color: #b45309; font-weight: bold; margin-bottom: 4px; }
 .idea-title { font-size: 0.9em; font-weight: bold; color: #1a1a1a; margin-bottom: 4px; }
+.idea-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; border-radius: 50%; background: #f59e0b; color: white;
+  font-size: 0.78em; margin-right: 8px; flex-shrink: 0;
+}
 .idea-desc { font-size: 0.85em; color: #555; line-height: 1.6; }
 .btn {
   -webkit-appearance: none; appearance: none; border: none; border-radius: 10px;
@@ -645,10 +649,9 @@ async function loadIdeas() {
       .sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; })
       .slice(0, 5);
     bodyEl.innerHTML = '<div class="idea-list">' +
-      sorted.map(function(idea) {
+      sorted.map(function(idea, i) {
         return '<div class="idea-item">' +
-          '<div class="idea-date">' + escHtml(idea.date) + '</div>' +
-          '<div class="idea-title">' + escHtml(idea.title) + '</div>' +
+          '<div class="idea-title"><span class="idea-num">' + (i + 1) + '</span>' + escHtml(idea.title) + '</div>' +
           '<div class="idea-desc">' + escHtml(idea.description) + '</div>' +
         '</div>';
       }).join('') +
