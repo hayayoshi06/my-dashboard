@@ -39,6 +39,9 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
   transition: opacity 0.2s, transform 0.2s;
 }
 .todo-item.removing { opacity: 0; transform: translateX(10px); }
+.todo-item.editing { display: block; }
+.todo-item.editing .todo-add-row { margin-bottom: 8px; }
+.todo-item.editing .todo-add-row:last-child { margin-bottom: 0; }
 .todo-item input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0; accent-color: #1a56db; }
 .todo-main { flex: 1; min-width: 0; }
 .todo-text { font-size: 0.9em; line-height: 1.5; word-break: break-all; display: inline; }
@@ -52,6 +55,10 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .todo-date { font-size: 0.75em; color: #888; margin-top: 2px; }
 .todo-date.overdue { color: #b91c1c; font-weight: bold; }
 .todo-date.today { color: #b45309; font-weight: bold; }
+.todo-edit-btn {
+  background: none; border: none; color: #1a56db; font-size: 1em; cursor: pointer;
+  padding: 4px 8px; line-height: 1; font-family: inherit;
+}
 .todo-del-btn {
   background: none; border: none; color: #b91c1c; font-size: 1.1em; cursor: pointer;
   padding: 4px 8px; line-height: 1; font-family: inherit;
@@ -312,6 +319,8 @@ function sortedTodos() {
   return withDate.concat(withoutDate);
 }
 
+var editingTodoId = null;
+
 function renderTodos() {
   var todos = sortedTodos();
   var listEl = document.getElementById('todoList');
@@ -320,12 +329,31 @@ function renderTodos() {
     return;
   }
   listEl.innerHTML = todos.map(function(t) {
+    var priorityKey = PRIORITY_LABEL.hasOwnProperty(t.priority) ? t.priority : 'mid';
+
+    if (t.id === editingTodoId) {
+      return '<div class="todo-item editing" data-id="' + t.id + '">' +
+        '<div class="todo-add-row">' +
+          '<input type="text" id="todoEditText-' + t.id + '" value="' + escHtml(t.text) + '" onkeydown="handleEditKeydown(event,' + t.id + ')">' +
+        '</div>' +
+        '<div class="todo-add-row">' +
+          '<select id="todoEditPriority-' + t.id + '">' +
+            '<option value="high"' + (priorityKey === 'high' ? ' selected' : '') + '>高</option>' +
+            '<option value="mid"' + (priorityKey === 'mid' ? ' selected' : '') + '>中</option>' +
+            '<option value="low"' + (priorityKey === 'low' ? ' selected' : '') + '>低</option>' +
+          '</select>' +
+          '<input type="date" id="todoEditDate-' + t.id + '" value="' + (t.dueDate || '') + '">' +
+          '<button class="btn btn-primary" onclick="saveTodoEdit(' + t.id + ')">保存</button>' +
+          '<button class="btn btn-secondary" onclick="cancelTodoEdit()">キャンセル</button>' +
+        '</div>' +
+      '</div>';
+    }
+
     var dateHtml = '';
     if (t.dueDate) {
       var info = formatDueDate(t.dueDate);
       dateHtml = '<div class="todo-date' + (info.cls ? ' ' + info.cls : '') + '">' + info.label + '</div>';
     }
-    var priorityKey = PRIORITY_LABEL.hasOwnProperty(t.priority) ? t.priority : 'mid';
     var priorityHtml = '<span class="todo-priority ' + priorityKey + '">' + PRIORITY_LABEL[priorityKey] + '</span>';
     return '<div class="todo-item" data-id="' + t.id + '">' +
       '<input type="checkbox" onchange="completeTodo(' + t.id + ')">' +
@@ -333,6 +361,7 @@ function renderTodos() {
         '<div class="todo-text">' + priorityHtml + escHtml(t.text) + '</div>' +
         dateHtml +
       '</div>' +
+      '<button class="todo-edit-btn" onclick="editTodo(' + t.id + ')">✎</button>' +
       '<button class="todo-del-btn" onclick="deleteTodo(' + t.id + ')">✕</button>' +
     '</div>';
   }).join('');
@@ -363,6 +392,39 @@ function deleteTodo(id) {
   var todos = loadTodos().filter(function(x) { return x.id !== id; });
   saveTodos(todos);
   renderTodos();
+}
+
+function editTodo(id) {
+  editingTodoId = id;
+  renderTodos();
+}
+
+function cancelTodoEdit() {
+  editingTodoId = null;
+  renderTodos();
+}
+
+function saveTodoEdit(id) {
+  var textInput = document.getElementById('todoEditText-' + id);
+  var dateInput = document.getElementById('todoEditDate-' + id);
+  var priorityInput = document.getElementById('todoEditPriority-' + id);
+  var text = textInput.value.trim();
+  if (!text) return;
+  var todos = loadTodos();
+  var t = todos.find(function(x) { return x.id === id; });
+  if (t) {
+    t.text = text;
+    t.dueDate = dateInput.value || null;
+    t.priority = priorityInput.value;
+  }
+  saveTodos(todos);
+  editingTodoId = null;
+  renderTodos();
+}
+
+function handleEditKeydown(e, id) {
+  if (e.key === 'Enter' && !e.isComposing && e.keyCode !== 229) saveTodoEdit(id);
+  else if (e.key === 'Escape') cancelTodoEdit();
 }
 
 document.getElementById('todoInput').addEventListener('keydown', function(e) {
