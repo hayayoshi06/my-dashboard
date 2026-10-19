@@ -3,42 +3,11 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="color-scheme" content="light dark">
 <title>マイダッシュボード</title>
 <style>
-:root {
-  --bg: #f0f4f8;
-  --card-bg: #ffffff;
-  --text-primary: #1a1a1a;
-  --text-secondary: #666;
-  --text-muted: #888;
-  --border-color: #eee;
-  --border-strong: #d0d9f0;
-  --input-bg: #f4f7ff;
-  --muted-bg: #f8f9fa;
-  --hover-bg: #eef2f8;
-  --shadow: rgba(0,0,0,0.08);
-  --overlay-bg: rgba(0,0,0,0.4);
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #121418;
-    --card-bg: #1e2126;
-    --text-primary: #e8eaed;
-    --text-secondary: #aab2bd;
-    --text-muted: #8a93a1;
-    --border-color: #2d3137;
-    --border-strong: #3a4250;
-    --input-bg: #262a31;
-    --muted-bg: #262a31;
-    --hover-bg: #2f3542;
-    --shadow: rgba(0,0,0,0.4);
-    --overlay-bg: rgba(0,0,0,0.6);
-  }
-}
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html { font-size: 16px; }
-body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Meiryo', sans-serif; background: var(--bg); min-height: 100vh; -webkit-text-size-adjust: 100%; color: var(--text-primary); }
+body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', 'Meiryo', sans-serif; background: #f0f4f8; min-height: 100vh; -webkit-text-size-adjust: 100%; color: #1a1a1a; }
 
 .header { background: #1a56db; color: white; padding: 14px 16px; display: flex; justify-content: space-between; align-items: center; }
 .header h1 { font-size: 1.1em; font-weight: bold; }
@@ -50,15 +19,15 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .row-2col { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .row-2col .card { margin: 0; }
 
-.card { background: var(--card-bg); border-radius: 14px; padding: 16px; box-shadow: 0 2px 10px var(--shadow); }
+.card { background: white; border-radius: 14px; padding: 16px; box-shadow: 0 2px 10px rgba(0,0,0,0.08); }
 .card-title { font-size: 0.95em; font-weight: bold; color: #1a56db; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
-.card-sub { font-size: 0.78em; color: var(--text-muted); margin-top: -4px; margin-bottom: 10px; }
+.card-sub { font-size: 0.78em; color: #888; margin-top: -4px; margin-bottom: 10px; }
 
 /* TODOリストカード */
 .todo-add-row { display: flex; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
 .todo-add-row input, .todo-add-row select {
-  flex: 1; padding: 10px 12px; border: 1.5px solid var(--border-strong); border-radius: 8px;
-  font-size: 0.9em; font-family: inherit; background: var(--input-bg); color: var(--text-primary);
+  flex: 1; padding: 10px 12px; border: 1.5px solid #d0d9f0; border-radius: 8px;
+  font-size: 0.9em; font-family: inherit; background: #f4f7ff;
 }
 .todo-add-row input[type="date"] { flex: none; width: 150px; }
 .todo-add-row select#todoPriorityInput { flex: none; width: 90px; }
@@ -66,7 +35,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .todo-list { display: flex; flex-direction: column; gap: 8px; }
 .todo-item {
   display: flex; align-items: center; gap: 10px; padding: 10px 12px;
-  background: var(--muted-bg); border-radius: 8px; border: 1px solid var(--border-color);
+  background: #f8f9fa; border-radius: 8px; border: 1px solid #eee;
   transition: opacity 0.2s, transform 0.2s;
 }
 .todo-item.removing { opacity: 0; transform: translateX(10px); }
@@ -83,7 +52,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .todo-priority.high { background: #fee2e2; color: #b91c1c; }
 .todo-priority.mid { background: #fef9e7; color: #b45309; }
 .todo-priority.low { background: #e8f0fe; color: #1a56db; }
-.todo-date { font-size: 0.75em; color: var(--text-muted); margin-top: 2px; }
+.todo-date { font-size: 0.75em; color: #888; margin-top: 2px; }
 .todo-date.overdue { color: #b91c1c; font-weight: bold; }
 .todo-date.today { color: #b45309; font-weight: bold; }
 .todo-edit-btn {
@@ -96,38 +65,38 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 }
 
 /* 日付カード */
-.date-big { font-size: 1.6em; font-weight: bold; color: var(--text-primary); }
-.date-sub { font-size: 0.9em; color: var(--text-secondary); margin-top: 4px; }
-.date-weather-divider { border-top: 1px solid var(--border-color); margin: 14px 0; }
+.date-big { font-size: 1.6em; font-weight: bold; color: #1a1a1a; }
+.date-sub { font-size: 0.9em; color: #666; margin-top: 4px; }
+.date-weather-divider { border-top: 1px solid #eee; margin: 14px 0; }
 
 /* 天気カード */
 .weather-row { display: flex; align-items: center; gap: 16px; }
 .weather-temp { font-size: 2.4em; font-weight: bold; color: #1a56db; }
-.weather-desc { font-size: 0.95em; color: var(--text-secondary); }
-.weather-meta { font-size: 0.8em; color: var(--text-muted); margin-top: 4px; }
+.weather-desc { font-size: 0.95em; color: #444; }
+.weather-meta { font-size: 0.8em; color: #888; margin-top: 4px; }
 .weather-place { font-size: 0.85em; color: #1a56db; font-weight: bold; margin-bottom: 8px; }
 
 /* ニュースカード */
 .news-list { display: flex; flex-direction: column; gap: 8px; }
-.news-item { display: block; padding: 10px 12px; background: var(--muted-bg); border-radius: 8px; text-decoration: none; color: var(--text-primary); font-size: 0.88em; line-height: 1.5; border: 1px solid var(--border-color); }
-.news-item:active { background: var(--hover-bg); }
+.news-item { display: block; padding: 10px 12px; background: #f8f9fa; border-radius: 8px; text-decoration: none; color: #1a1a1a; font-size: 0.88em; line-height: 1.5; border: 1px solid #eee; }
+.news-item:active { background: #eef2f8; }
 .news-item .src { display: block; font-size: 0.75em; color: #1a56db; margin-top: 4px; font-weight: bold; }
 
 /* カレンダーカード */
 .cal-list { display: flex; flex-direction: column; gap: 8px; }
-.cal-item { display: flex; gap: 10px; padding: 8px 10px; background: var(--muted-bg); border-radius: 8px; font-size: 0.88em; border-left: 3px solid #1a56db; }
+.cal-item { display: flex; gap: 10px; padding: 8px 10px; background: #f8f9fa; border-radius: 8px; font-size: 0.88em; border-left: 3px solid #1a56db; }
 .cal-time { color: #1a56db; font-weight: bold; min-width: 48px; }
 
 /* 改善アイデアカード */
 .idea-list { display: flex; flex-direction: column; gap: 10px; }
-.idea-item { padding: 12px; background: var(--muted-bg); border-radius: 8px; border-left: 3px solid #f59e0b; }
-.idea-title { font-size: 0.9em; font-weight: bold; color: var(--text-primary); margin-bottom: 4px; }
+.idea-item { padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 3px solid #f59e0b; }
+.idea-title { font-size: 0.9em; font-weight: bold; color: #1a1a1a; margin-bottom: 4px; }
 .idea-num {
   display: inline-flex; align-items: center; justify-content: center;
   width: 20px; height: 20px; border-radius: 50%; background: #f59e0b; color: white;
   font-size: 0.78em; margin-right: 8px; flex-shrink: 0;
 }
-.idea-desc { font-size: 0.85em; color: var(--text-secondary); line-height: 1.6; }
+.idea-desc { font-size: 0.85em; color: #555; line-height: 1.6; }
 .btn {
   -webkit-appearance: none; appearance: none; border: none; border-radius: 10px;
   padding: 11px 16px; font-size: 0.9em; cursor: pointer; font-weight: bold;
@@ -135,40 +104,40 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 }
 .btn-primary { background: #1a56db; color: white; }
 .btn-primary:active { background: #1245b5; }
-.btn-secondary { background: var(--bg); color: #1a56db; border: 1.5px solid var(--border-strong); }
-.btn-secondary:active { background: var(--hover-bg); }
+.btn-secondary { background: #f0f4f8; color: #1a56db; border: 1.5px solid #d0d9f0; }
+.btn-secondary:active { background: #dde8ff; }
 
-.status-msg { font-size: 0.85em; color: var(--text-muted); padding: 8px 0; }
-.status-msg.error { color: #e55353; }
+.status-msg { font-size: 0.85em; color: #888; padding: 8px 0; }
+.status-msg.error { color: #b91c1c; }
 
 /* 設定パネル */
-.overlay { position: fixed; inset: 0; background: var(--overlay-bg); display: none; align-items: flex-end; justify-content: center; z-index: 10; }
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: flex-end; justify-content: center; z-index: 10; }
 .overlay.open { display: flex; }
-.settings-panel { background: var(--card-bg); width: 100%; max-width: 760px; border-radius: 16px 16px 0 0; padding: 20px 18px 28px; max-height: 85vh; overflow-y: auto; }
-.settings-panel h2 { font-size: 1.05em; margin-bottom: 14px; color: var(--text-primary); }
+.settings-panel { background: white; width: 100%; max-width: 760px; border-radius: 16px 16px 0 0; padding: 20px 18px 28px; max-height: 85vh; overflow-y: auto; }
+.settings-panel h2 { font-size: 1.05em; margin-bottom: 14px; color: #1a1a1a; }
 .field-group { margin-bottom: 16px; }
-.field-group label { display: block; font-size: 0.82em; font-weight: bold; color: var(--text-secondary); margin-bottom: 6px; }
+.field-group label { display: block; font-size: 0.82em; font-weight: bold; color: #444; margin-bottom: 6px; }
 .field-group input {
-  width: 100%; padding: 10px 12px; border: 1.5px solid var(--border-strong); border-radius: 8px;
-  font-size: 0.9em; font-family: inherit; background: var(--input-bg); color: var(--text-primary);
+  width: 100%; padding: 10px 12px; border: 1.5px solid #d0d9f0; border-radius: 8px;
+  font-size: 0.9em; font-family: inherit; background: #f4f7ff;
 }
-.field-hint { font-size: 0.75em; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+.field-hint { font-size: 0.75em; color: #888; margin-top: 4px; line-height: 1.5; }
 .secret-input-row { display: flex; gap: 8px; }
 .secret-input-row input { flex: 1; }
 .secret-toggle-btn {
   -webkit-appearance: none; appearance: none; flex: none; white-space: nowrap;
-  background: var(--bg); border: 1.5px solid var(--border-strong); border-radius: 8px;
-  padding: 0 14px; font-size: 0.82em; color: var(--text-secondary); cursor: pointer; font-family: inherit;
+  background: #f0f4f8; border: 1.5px solid #c8d5e8; border-radius: 8px;
+  padding: 0 14px; font-size: 0.82em; color: #555; cursor: pointer; font-family: inherit;
 }
-.secret-toggle-btn:active { background: var(--hover-bg); }
+.secret-toggle-btn:active { background: #dde8ff; }
 .preset-list { display: flex; flex-direction: column; gap: 6px; }
 .preset-item { display: flex; align-items: center; gap: 8px; }
 .preset-apply-btn {
   flex: 1; text-align: left; -webkit-appearance: none; appearance: none;
-  background: var(--input-bg); border: 1.5px solid var(--border-strong); border-radius: 8px;
-  padding: 9px 12px; font-size: 0.88em; color: var(--text-primary); cursor: pointer; font-family: inherit;
+  background: #f4f7ff; border: 1.5px solid #d0d9f0; border-radius: 8px;
+  padding: 9px 12px; font-size: 0.88em; color: #1a1a1a; cursor: pointer; font-family: inherit;
 }
-.preset-apply-btn:active { background: var(--hover-bg); }
+.preset-apply-btn:active { background: #dde8ff; }
 .preset-del-btn {
   background: none; border: none; color: #b91c1c; font-size: 1.1em; cursor: pointer;
   padding: 4px 8px; line-height: 1; font-family: inherit;
@@ -278,7 +247,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       </div>
     </div>
 
-    <hr style="margin:18px 0; border:none; border-top:1px solid var(--border-color);">
+    <hr style="margin:18px 0; border:none; border-top:1px solid #eee;">
 
     <div class="field-group">
       <label>Google OAuth クライアントID</label>
