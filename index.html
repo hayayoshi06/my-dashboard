@@ -121,6 +121,14 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
   font-size: 0.9em; font-family: inherit; background: #f4f7ff;
 }
 .field-hint { font-size: 0.75em; color: #888; margin-top: 4px; line-height: 1.5; }
+.secret-input-row { display: flex; gap: 8px; }
+.secret-input-row input { flex: 1; }
+.secret-toggle-btn {
+  -webkit-appearance: none; appearance: none; flex: none; white-space: nowrap;
+  background: #f0f4f8; border: 1.5px solid #c8d5e8; border-radius: 8px;
+  padding: 0 14px; font-size: 0.82em; color: #555; cursor: pointer; font-family: inherit;
+}
+.secret-toggle-btn:active { background: #dde8ff; }
 .settings-actions { display: flex; gap: 10px; margin-top: 18px; }
 .settings-actions .btn { flex: 1; }
 </style>
@@ -221,14 +229,21 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 
     <div class="field-group">
       <label>Google OAuth クライアントID</label>
-      <input type="text" id="gClientId" placeholder="xxxxxxxx.apps.googleusercontent.com">
+      <div class="secret-input-row">
+        <input type="password" id="gClientId" placeholder="xxxxxxxx.apps.googleusercontent.com">
+        <button type="button" class="secret-toggle-btn" onclick="toggleSecretVisibility('gClientId', this)">表示</button>
+      </div>
     </div>
     <div class="field-group">
       <label>Google API キー</label>
-      <input type="text" id="gApiKey" placeholder="AIza...">
+      <div class="secret-input-row">
+        <input type="password" id="gApiKey" placeholder="AIza...">
+        <button type="button" class="secret-toggle-btn" onclick="toggleSecretVisibility('gApiKey', this)">表示</button>
+      </div>
       <div class="field-hint">
         Google Cloud Console で OAuth クライアントID と APIキーを発行し、Calendar API を有効化してください。
         ここで入力した値はこのブラウザの localStorage にのみ保存され、リポジトリには保存されません。
+        普段は内容が隠れた状態で表示されます。
       </div>
     </div>
     <button class="btn btn-secondary" onclick="saveGoogleSettings()">Google設定を保存</button>
@@ -267,10 +282,31 @@ function openSettings() {
   document.getElementById('gApiKey').value = s.googleApiKey || '';
   document.getElementById('citySearchStatus').textContent = '';
   document.getElementById('googleSettingsStatus').textContent = '';
+  // 開くたびに非表示状態にリセットする
+  resetSecretVisibility('gClientId');
+  resetSecretVisibility('gApiKey');
   document.getElementById('settingsOverlay').classList.add('open');
 }
 function closeSettings() {
   document.getElementById('settingsOverlay').classList.remove('open');
+}
+
+function toggleSecretVisibility(inputId, btn) {
+  var input = document.getElementById(inputId);
+  if (input.type === 'password') {
+    input.type = 'text';
+    btn.textContent = '隠す';
+  } else {
+    input.type = 'password';
+    btn.textContent = '表示';
+  }
+}
+
+function resetSecretVisibility(inputId) {
+  var input = document.getElementById(inputId);
+  input.type = 'password';
+  var btn = input.parentElement.querySelector('.secret-toggle-btn');
+  if (btn) btn.textContent = '表示';
 }
 
 // ========== TODOリスト ==========
