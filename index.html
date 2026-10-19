@@ -666,6 +666,27 @@ var gTokenClient = null;
 var gapiInited = false;
 var gisInited = false;
 
+// アクセストークンをブラウザに保存し、有効期限内は再接続なしで自動利用する
+var GOOGLE_TOKEN_KEY = 'dashboardGoogleToken';
+
+function saveAccessToken(resp) {
+  // 失効直前の取得失敗を避けるため2分早めに期限切れ扱いにする
+  var expiresAt = Date.now() + (resp.expires_in * 1000) - 120000;
+  localStorage.setItem(GOOGLE_TOKEN_KEY, JSON.stringify({ access_token: resp.access_token, expires_at: expiresAt }));
+}
+
+function getValidCachedToken() {
+  try {
+    var saved = JSON.parse(localStorage.getItem(GOOGLE_TOKEN_KEY));
+    if (saved && saved.access_token && saved.expires_at > Date.now()) return saved.access_token;
+  } catch (e) {}
+  return null;
+}
+
+function clearCachedToken() {
+  localStorage.removeItem(GOOGLE_TOKEN_KEY);
+}
+
 function saveGoogleSettings() {
   var clientId = document.getElementById('gClientId').value.trim();
   var apiKey = document.getElementById('gApiKey').value.trim();
@@ -686,7 +707,19 @@ function initGapiClient() {
   gapi.client.init({
     apiKey: s.googleApiKey,
     discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']
-  }).then(function() { gapiInited = true; });
+  }).then(function() {
+    gapiInited = true;
+    tryAutoConnectCalendar();
+  });
+}
+
+// ページを開いた時点で有効なトークンが残っていれば、再承認なしで自動的に予定を読み込む
+function tryAutoConnectCalendar() {
+  var token = getValidCachedToken();
+  if (token && gapiInited) {
+    gapi.client.setToken({ access_token: token });
+    loadTodayEvents();
+  }
 }
 
 window.addEventListener('load', function() {
@@ -711,6 +744,15 @@ function connectCalendar() {
       '<button class="btn btn-primary" style="margin-top:8px;" onclick="connectCalendar()">再試行</button>';
     return;
   }
+
+  // 有効なトークンが残っていれば、承認ダイアログを出さずにそのまま利用する
+  var cachedToken = getValidCachedToken();
+  if (cachedToken) {
+    gapi.client.setToken({ access_token: cachedToken });
+    loadTodayEvents();
+    return;
+  }
+
   if (!gTokenClient) {
     gTokenClient = google.accounts.oauth2.initTokenClient({
       client_id: s.googleClientId,
@@ -720,6 +762,7 @@ function connectCalendar() {
           bodyEl.innerHTML = '<div class="status-msg error">認証に失敗しました：' + resp.error + '</div>';
           return;
         }
+        saveAccessToken(resp);
         loadTodayEvents();
       }
     });
@@ -755,6 +798,14 @@ async function loadTodayEvents() {
       }).join('') +
       '</div>';
   } catch (e) {
+    var code = (e && e.status) || (e && e.result && e.result.error && e.result.error.code);
+    if (code === 401) {
+      // トークンが失効している場合はキャッシュを破棄し、再接続を促す
+      clearCachedToken();
+      bodyEl.innerHTML = '<div class="status-msg error">認証の有効期限が切れました。再接続してください</div>' +
+        '<button class="btn btn-primary" style="margin-top:8px;" onclick="connectCalendar()">Googleカレンダーに再接続</button>';
+      return;
+    }
     bodyEl.innerHTML = '<div class="status-msg error">予定の取得に失敗しました：' + (e.message || JSON.stringify(e)) + '</div>';
   }
 }
