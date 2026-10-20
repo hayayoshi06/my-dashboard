@@ -87,6 +87,15 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .cal-item { display: flex; gap: 10px; padding: 8px 10px; background: #f8f9fa; border-radius: 8px; font-size: 0.88em; border-left: 3px solid #1a56db; }
 .cal-time { color: #1a56db; font-weight: bold; min-width: 48px; }
 
+/* 健康データカード */
+.health-date { font-size: 0.8em; color: #888; margin-bottom: 10px; }
+.health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+.health-stat { background: #f8f9fa; border-radius: 10px; padding: 12px 10px; text-align: center; }
+.health-stat-icon { font-size: 1.3em; margin-bottom: 4px; }
+.health-stat-value { font-size: 1.15em; font-weight: bold; color: #1a56db; }
+.health-stat-unit { font-size: 0.65em; font-weight: normal; color: #888; }
+.health-stat-label { font-size: 0.72em; color: #888; margin-top: 2px; }
+
 /* 改善アイデアカード */
 .idea-list { display: flex; flex-direction: column; gap: 10px; }
 .idea-item { padding: 12px; background: #f8f9fa; border-radius: 8px; border-left: 3px solid #f59e0b; }
@@ -173,7 +182,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       <div class="card-title">🗓 今日の予定（Googleカレンダー）</div>
       <div id="calendarBody">
         <div class="status-msg">設定からGoogleカレンダーとの連携を行ってください</div>
-        <button class="btn btn-primary" id="calConnectBtn" style="margin-top:8px;" onclick="connectCalendar()">Googleカレンダーに接続</button>
+        <button class="btn btn-primary" id="calConnectBtn" style="margin-top:8px;" onclick="connectGoogle()">Googleカレンダーに接続</button>
       </div>
     </div>
   </div>
@@ -194,6 +203,13 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       <button class="btn btn-primary" onclick="addTodo()">追加</button>
     </div>
     <div class="todo-list" id="todoList"></div>
+  </div>
+
+  <!-- 健康データ -->
+  <div class="card">
+    <div class="card-title">🩺 健康データ</div>
+    <div class="card-sub">iPhoneショートカットで自動送信されたヘルスケアデータ</div>
+    <div id="healthBody"><div class="status-msg">設定からスプレッドシートIDを登録してください</div></div>
   </div>
 
   <!-- 世界情勢 -->
@@ -263,13 +279,27 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
         <button type="button" class="secret-toggle-btn" onclick="toggleSecretVisibility('gApiKey', this)">表示</button>
       </div>
       <div class="field-hint">
-        Google Cloud Console で OAuth クライアントID と APIキーを発行し、Calendar API を有効化してください。
+        Google Cloud Console で OAuth クライアントID と APIキーを発行し、Calendar API・Google Sheets API を有効化してください。
         ここで入力した値はこのブラウザの localStorage にのみ保存され、リポジトリには保存されません。
         普段は内容が隠れた状態で表示されます。
       </div>
     </div>
     <button class="btn btn-secondary" onclick="saveGoogleSettings()">Google設定を保存</button>
     <div class="status-msg" id="googleSettingsStatus"></div>
+
+    <hr style="margin:18px 0; border:none; border-top:1px solid #eee;">
+
+    <div class="field-group">
+      <label>健康データ用 Google スプレッドシートID</label>
+      <input type="text" id="healthSheetId" placeholder="例：1AbCDefGhIJKLmnoPQRstuVWxyZ">
+      <div class="field-hint">
+        スプレッドシートのURL（https://docs.google.com/spreadsheets/d/【ここがID】/edit）からIDをコピーして貼り付けてください。
+        シート（タブ）名は「HealthData」にし、1行目を見出し（日付・歩数・距離km・アクティブエネルギーkcal・睡眠時間h・心拍数bpm・体重kg）にしてください。
+        スプレッドシートは非公開のままでよく、上記のGoogle認証でご自身のログイン時のみ読み込みます。
+      </div>
+    </div>
+    <button class="btn btn-secondary" onclick="saveHealthSheetSettings()">健康データ設定を保存</button>
+    <div class="status-msg" id="healthSheetStatus"></div>
 
     <div class="settings-actions">
       <button class="btn btn-secondary" onclick="closeSettings()">閉じる</button>
@@ -302,8 +332,10 @@ function openSettings() {
   document.getElementById('cityInput').value = (s.location && s.location.name) || '';
   document.getElementById('gClientId').value = s.googleClientId || '';
   document.getElementById('gApiKey').value = s.googleApiKey || '';
+  document.getElementById('healthSheetId').value = s.healthSheetId || '';
   document.getElementById('citySearchStatus').textContent = '';
   document.getElementById('googleSettingsStatus').textContent = '';
+  document.getElementById('healthSheetStatus').textContent = '';
   // 開くたびに非表示状態にリセットする
   resetSecretVisibility('gClientId');
   resetSecretVisibility('gApiKey');
@@ -792,24 +824,37 @@ function saveGoogleSettings() {
   statusEl.className = 'status-msg';
 }
 
+function saveHealthSheetSettings() {
+  var sheetId = document.getElementById('healthSheetId').value.trim();
+  var statusEl = document.getElementById('healthSheetStatus');
+  saveSettings({ healthSheetId: sheetId || null });
+  statusEl.textContent = sheetId ? '保存しました' : '設定を解除しました';
+  statusEl.className = 'status-msg';
+  loadHealthData();
+}
+
 function initGapiClient() {
   var s = loadSettings();
   if (!s.googleApiKey) return;
   gapi.client.init({
     apiKey: s.googleApiKey,
-    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest']
+    discoveryDocs: [
+      'https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest',
+      'https://sheets.googleapis.com/$discovery/rest?version=v4'
+    ]
   }).then(function() {
     gapiInited = true;
-    tryAutoConnectCalendar();
+    tryAutoConnectGoogle();
   });
 }
 
-// ページを開いた時点で有効なトークンが残っていれば、再承認なしで自動的に予定を読み込む
-function tryAutoConnectCalendar() {
+// ページを開いた時点で有効なトークンが残っていれば、再承認なしで自動的にカレンダー・健康データを読み込む
+function tryAutoConnectGoogle() {
   var token = getValidCachedToken();
   if (token && gapiInited) {
     gapi.client.setToken({ access_token: token });
     loadTodayEvents();
+    loadHealthData();
   }
 }
 
@@ -822,7 +867,8 @@ window.addEventListener('load', function() {
   }, 300);
 });
 
-function connectCalendar() {
+// Googleカレンダーと健康データ（スプレッドシート）はまとめて1回の認証でアクセスする
+function connectGoogle() {
   var s = loadSettings();
   var bodyEl = document.getElementById('calendarBody');
   if (!s.googleClientId || !s.googleApiKey) {
@@ -832,7 +878,7 @@ function connectCalendar() {
   }
   if (!window.google || !window.gapi) {
     bodyEl.innerHTML = '<div class="status-msg error">Google APIの読み込み中です。少し待って再度お試しください</div>' +
-      '<button class="btn btn-primary" style="margin-top:8px;" onclick="connectCalendar()">再試行</button>';
+      '<button class="btn btn-primary" style="margin-top:8px;" onclick="connectGoogle()">再試行</button>';
     return;
   }
 
@@ -841,13 +887,14 @@ function connectCalendar() {
   if (cachedToken) {
     gapi.client.setToken({ access_token: cachedToken });
     loadTodayEvents();
+    loadHealthData();
     return;
   }
 
   if (!gTokenClient) {
     gTokenClient = google.accounts.oauth2.initTokenClient({
       client_id: s.googleClientId,
-      scope: 'https://www.googleapis.com/auth/calendar.readonly',
+      scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets.readonly',
       callback: function(resp) {
         if (resp.error) {
           bodyEl.innerHTML = '<div class="status-msg error">認証に失敗しました：' + resp.error + '</div>';
@@ -855,6 +902,7 @@ function connectCalendar() {
         }
         saveAccessToken(resp);
         loadTodayEvents();
+        loadHealthData();
       }
     });
   }
@@ -894,10 +942,67 @@ async function loadTodayEvents() {
       // トークンが失効している場合はキャッシュを破棄し、再接続を促す
       clearCachedToken();
       bodyEl.innerHTML = '<div class="status-msg error">認証の有効期限が切れました。再接続してください</div>' +
-        '<button class="btn btn-primary" style="margin-top:8px;" onclick="connectCalendar()">Googleカレンダーに再接続</button>';
+        '<button class="btn btn-primary" style="margin-top:8px;" onclick="connectGoogle()">Googleカレンダーに再接続</button>';
       return;
     }
     bodyEl.innerHTML = '<div class="status-msg error">予定の取得に失敗しました：' + (e.message || JSON.stringify(e)) + '</div>';
+  }
+}
+
+// ========== 健康データ（Google スプレッドシート経由、非公開のままOAuthで読み込み） ==========
+function healthStat(icon, label, value, unit) {
+  var hasValue = value !== undefined && value !== null && value !== '';
+  return '<div class="health-stat">' +
+    '<div class="health-stat-icon">' + icon + '</div>' +
+    '<div class="health-stat-value">' + (hasValue ? escHtml(String(value)) + ' <span class="health-stat-unit">' + unit + '</span>' : '—') + '</div>' +
+    '<div class="health-stat-label">' + label + '</div>' +
+  '</div>';
+}
+
+async function loadHealthData() {
+  var bodyEl = document.getElementById('healthBody');
+  var s = loadSettings();
+  if (!s.healthSheetId) {
+    bodyEl.innerHTML = '<div class="status-msg">設定からスプレッドシートIDを登録してください</div>';
+    return;
+  }
+  if (!gapiInited || !gapi.client.getToken()) {
+    bodyEl.innerHTML = '<div class="status-msg">Googleに接続すると表示されます</div>' +
+      '<button class="btn btn-primary" style="margin-top:8px;" onclick="connectGoogle()">Googleに接続</button>';
+    return;
+  }
+  bodyEl.innerHTML = '<div class="status-msg">読み込み中…</div>';
+  try {
+    var resp = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: s.healthSheetId,
+      range: 'HealthData!A:G'
+    });
+    var rows = resp.result.values || [];
+    if (rows.length < 2) {
+      bodyEl.innerHTML = '<div class="status-msg">まだデータがありません（ショートカットからの送信をお待ちください）</div>';
+      return;
+    }
+    var last = rows[rows.length - 1];
+    bodyEl.innerHTML =
+      '<div class="health-date">' + escHtml(last[0] || '') + ' のデータ</div>' +
+      '<div class="health-grid">' +
+        healthStat('👣', '歩数', last[1], '歩') +
+        healthStat('📏', '距離', last[2], 'km') +
+        healthStat('🔥', 'アクティブエネルギー', last[3], 'kcal') +
+        healthStat('😴', '睡眠時間', last[4], '時間') +
+        healthStat('❤️', '心拍数', last[5], 'bpm') +
+        healthStat('⚖️', '体重', last[6], 'kg') +
+      '</div>';
+  } catch (e) {
+    var code = (e && e.status) || (e && e.result && e.result.error && e.result.error.code);
+    if (code === 401 || code === 403) {
+      clearCachedToken();
+      bodyEl.innerHTML = '<div class="status-msg error">認証が切れたか、スプレッドシートへのアクセス権限がありません。再接続してください</div>' +
+        '<button class="btn btn-primary" style="margin-top:8px;" onclick="connectGoogle()">Googleに再接続</button>';
+      return;
+    }
+    bodyEl.innerHTML = '<div class="status-msg error">健康データの取得に失敗しました：' + (e.message || JSON.stringify(e)) + '</div>' +
+      '<button class="btn btn-secondary" style="margin-top:8px;" onclick="loadHealthData()">再試行</button>';
   }
 }
 
@@ -944,6 +1049,7 @@ loadWeather();
 loadWorldNews();
 loadAiNews();
 loadIdeas();
+loadHealthData();
 
 // ニュースはページを開いたままでも内容が古くならないよう、30分おきに自動更新する
 setInterval(function() {
