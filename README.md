@@ -91,7 +91,10 @@ function doPost(e) {
       var dateColumn = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
       for (var i = 0; i < dateColumn.length; i++) {
         var cellValue = dateColumn[i][0];
-        var existingDateStr = cellValue instanceof Date
+        // instanceof Date はスプレッドシートの日付値では false になることがあるため、
+        // Object.prototype.toString で判定する
+        var isDateObj = Object.prototype.toString.call(cellValue) === '[object Date]';
+        var existingDateStr = isDateObj
           ? Utilities.formatDate(cellValue, 'Asia/Tokyo', 'yyyy-MM-dd')
           : String(cellValue);
         if (existingDateStr === dateStr) {
