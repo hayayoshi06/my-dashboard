@@ -73,15 +73,39 @@ function doPost(e) {
       sheet.appendRow(['日付', '歩数', '距離km', 'アクティブエネルギーkcal', '睡眠時間h', '心拍数bpm', '体重kg']);
     }
 
-    sheet.appendRow([
-      data.date || Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd'),
+    var dateStr = data.date || Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
+    var rowValues = [
+      dateStr,
       data.steps || '',
       data.distance || '',
       data.activeEnergy || '',
       data.sleepHours || '',
       data.heartRate || '',
       data.weight || ''
-    ]);
+    ];
+
+    // 同じ日付の行が既にあれば上書きし、無ければ新規に追加する（同日に複数回実行しても重複しない）
+    var lastRow = sheet.getLastRow();
+    var existingRowIndex = -1;
+    if (lastRow > 1) {
+      var dateColumn = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
+      for (var i = 0; i < dateColumn.length; i++) {
+        var cellValue = dateColumn[i][0];
+        var existingDateStr = cellValue instanceof Date
+          ? Utilities.formatDate(cellValue, 'Asia/Tokyo', 'yyyy-MM-dd')
+          : String(cellValue);
+        if (existingDateStr === dateStr) {
+          existingRowIndex = i + 2; // 1行目はヘッダーなので+2
+          break;
+        }
+      }
+    }
+
+    if (existingRowIndex > 0) {
+      sheet.getRange(existingRowIndex, 1, 1, rowValues.length).setValues([rowValues]);
+    } else {
+      sheet.appendRow(rowValues);
+    }
 
     return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
       .setMimeType(ContentService.MimeType.JSON);
