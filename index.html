@@ -90,11 +90,26 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 /* 健康データカード */
 .health-date { font-size: 0.8em; color: #888; margin-bottom: 10px; }
 .health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
-.health-stat { background: #f8f9fa; border-radius: 10px; padding: 12px 10px; text-align: center; }
+.health-stat {
+  background: #f8f9fa; border-radius: 10px; padding: 12px 10px; text-align: center;
+  cursor: pointer; touch-action: manipulation;
+}
+.health-stat:active { background: #eef2f8; }
 .health-stat-icon { font-size: 1.3em; margin-bottom: 4px; }
 .health-stat-value { font-size: 1.15em; font-weight: bold; color: #1a56db; }
 .health-stat-unit { font-size: 0.65em; font-weight: normal; color: #888; }
 .health-stat-label { font-size: 0.72em; color: #888; margin-top: 2px; }
+
+/* 健康データ詳細（棒グラフ） */
+.health-chart {
+  display: flex; align-items: flex-end; gap: 6px; height: 180px;
+  padding: 10px 2px 0; overflow-x: auto;
+}
+.health-bar-col { display: flex; flex-direction: column; align-items: center; justify-content: flex-end; flex: 1; min-width: 28px; height: 100%; }
+.health-bar-value { font-size: 0.62em; color: #1a56db; font-weight: bold; margin-bottom: 4px; white-space: nowrap; }
+.health-bar { width: 18px; background: #1a56db; border-radius: 4px 4px 0 0; min-height: 2px; }
+.health-bar.empty { background: #e0e0e0; }
+.health-bar-date { font-size: 0.6em; color: #888; margin-top: 6px; white-space: nowrap; }
 
 /* 改善アイデアカード */
 .idea-list { display: flex; flex-direction: column; gap: 10px; }
@@ -303,6 +318,17 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 
     <div class="settings-actions">
       <button class="btn btn-secondary" onclick="closeSettings()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 健康データ詳細（過去14日の推移） -->
+<div class="overlay" id="healthDetailOverlay">
+  <div class="settings-panel">
+    <h2 id="healthDetailTitle">詳細</h2>
+    <div id="healthDetailChart"></div>
+    <div class="settings-actions">
+      <button class="btn btn-secondary" onclick="closeHealthDetail()">閉じる</button>
     </div>
   </div>
 </div>
@@ -950,9 +976,11 @@ async function loadTodayEvents() {
 }
 
 // ========== 健康データ（Google スプレッドシート経由、非公開のままOAuthで読み込み） ==========
-function healthStat(icon, label, value, unit) {
+var healthRowsCache = [];
+
+function healthStat(icon, label, value, unit, colIndex) {
   var hasValue = value !== undefined && value !== null && value !== '';
-  return '<div class="health-stat">' +
+  return '<div class="health-stat" onclick="openHealthDetail(' + colIndex + ', \'' + label + '\', \'' + unit + '\')">' +
     '<div class="health-stat-icon">' + icon + '</div>' +
     '<div class="health-stat-value">' + (hasValue ? escHtml(String(value)) + ' <span class="health-stat-unit">' + unit + '</span>' : '—') + '</div>' +
     '<div class="health-stat-label">' + label + '</div>' +
@@ -982,16 +1010,17 @@ async function loadHealthData() {
       bodyEl.innerHTML = '<div class="status-msg">まだデータがありません（ショートカットからの送信をお待ちください）</div>';
       return;
     }
-    var last = rows[rows.length - 1];
+    healthRowsCache = rows.slice(1); // ヘッダー行を除く
+    var last = healthRowsCache[healthRowsCache.length - 1];
     bodyEl.innerHTML =
-      '<div class="health-date">' + escHtml(last[0] || '') + ' のデータ</div>' +
+      '<div class="health-date">' + escHtml(last[0] || '') + ' のデータ（タップで過去14日分を表示）</div>' +
       '<div class="health-grid">' +
-        healthStat('👣', '歩数', last[1], '歩') +
-        healthStat('📏', '距離', last[2], 'km') +
-        healthStat('🔥', 'アクティブエネルギー', last[3], 'kcal') +
-        healthStat('😴', '睡眠時間', last[4], '時間') +
-        healthStat('❤️', '心拍数', last[5], 'bpm') +
-        healthStat('⚖️', '体重', last[6], 'kg') +
+        healthStat('👣', '歩数', last[1], '歩', 1) +
+        healthStat('📏', '距離', last[2], 'km', 2) +
+        healthStat('🔥', 'アクティブエネルギー', last[3], 'kcal', 3) +
+        healthStat('😴', '睡眠時間', last[4], '時間', 4) +
+        healthStat('❤️', '心拍数', last[5], 'bpm', 5) +
+        healthStat('⚖️', '体重', last[6], 'kg', 6) +
       '</div>';
   } catch (e) {
     var code = (e && e.status) || (e && e.result && e.result.error && e.result.error.code);
@@ -1004,6 +1033,47 @@ async function loadHealthData() {
     bodyEl.innerHTML = '<div class="status-msg error">健康データの取得に失敗しました：' + (e.message || JSON.stringify(e)) + '</div>' +
       '<button class="btn btn-secondary" style="margin-top:8px;" onclick="loadHealthData()">再試行</button>';
   }
+}
+
+// 日付文字列（例：2026-10-22）を「10/22」の短い表示に変換する
+function formatShortDate(dateStr) {
+  var parts = String(dateStr || '').split('-');
+  if (parts.length === 3) return parseInt(parts[1], 10) + '/' + parseInt(parts[2], 10);
+  return dateStr || '';
+}
+
+function openHealthDetail(colIndex, label, unit) {
+  document.getElementById('healthDetailTitle').textContent = label + 'の推移（過去14日）';
+  var chartEl = document.getElementById('healthDetailChart');
+  var last14 = healthRowsCache.slice(-14);
+  var nums = last14.map(function(r) {
+    var v = parseFloat(r[colIndex]);
+    return isNaN(v) ? null : v;
+  });
+  var validNums = nums.filter(function(v) { return v !== null; });
+
+  if (validNums.length === 0) {
+    chartEl.innerHTML = '<div class="status-msg">この期間のデータはまだありません</div>';
+  } else {
+    var maxVal = Math.max.apply(null, validNums);
+    chartEl.innerHTML = '<div class="health-chart">' +
+      last14.map(function(r, i) {
+        var v = nums[i];
+        var hasV = v !== null;
+        var heightPct = hasV ? Math.max(4, Math.round((v / maxVal) * 100)) : 2;
+        return '<div class="health-bar-col">' +
+          '<div class="health-bar-value">' + (hasV ? v : '') + '</div>' +
+          '<div class="health-bar' + (hasV ? '' : ' empty') + '" style="height:' + heightPct + '%"></div>' +
+          '<div class="health-bar-date">' + formatShortDate(r[0]) + '</div>' +
+        '</div>';
+      }).join('') +
+    '</div>';
+  }
+  document.getElementById('healthDetailOverlay').classList.add('open');
+}
+
+function closeHealthDetail() {
+  document.getElementById('healthDetailOverlay').classList.remove('open');
 }
 
 // ========== 改善アイデア（ideas.jsonを読み込んで表示） ==========
