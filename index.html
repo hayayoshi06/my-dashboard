@@ -1019,7 +1019,7 @@ async function loadHealthData() {
         healthStat('📏', '距離', formatNum1(last[2]), 'km', 2) +
         healthStat('🔥', 'アクティブエネルギー', last[3], 'kcal', 3) +
         healthStat('😴', '睡眠時間', last[4], '時間', 4) +
-        healthStat('❤️', '心拍数', last[5], 'bpm', 5) +
+        healthStat('❤️', '心拍数', formatNum2(last[5]), 'bpm', 5) +
         healthStat('⚖️', '体重', last[6], 'kg', 6) +
       '</div>';
   } catch (e) {
@@ -1048,6 +1048,12 @@ function formatNum1(value) {
   return isNaN(n) ? value : Math.round(n * 10) / 10;
 }
 
+// 心拍数などの数値を小数点2桁に丸める（数値でなければそのまま返す）
+function formatNum2(value) {
+  var n = parseFloat(value);
+  return isNaN(n) ? value : Math.round(n * 100) / 100;
+}
+
 function openHealthDetail(colIndex, label, unit) {
   document.getElementById('healthDetailTitle').textContent = label + 'の推移（過去14日）';
   var chartEl = document.getElementById('healthDetailChart');
@@ -1067,7 +1073,7 @@ function openHealthDetail(colIndex, label, unit) {
         var v = nums[i];
         var hasV = v !== null;
         var heightPct = hasV ? Math.max(4, Math.round((v / maxVal) * 100)) : 2;
-        var displayV = hasV ? (colIndex === 2 ? formatNum1(v) : v) : '';
+        var displayV = hasV ? (colIndex === 2 ? formatNum1(v) : colIndex === 5 ? formatNum2(v) : v) : '';
         return '<div class="health-bar-col">' +
           '<div class="health-bar-value">' + displayV + '</div>' +
           '<div class="health-bar' + (hasV ? '' : ' empty') + '" style="height:' + heightPct + '%"></div>' +
