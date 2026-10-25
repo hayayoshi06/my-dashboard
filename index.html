@@ -334,6 +334,18 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
     <button class="btn btn-secondary" onclick="saveHealthSheetSettings()">健康データ設定を保存</button>
     <div class="status-msg" id="healthSheetStatus"></div>
 
+    <hr style="margin:18px 0; border:none; border-top:1px solid #eee;">
+
+    <div class="field-group">
+      <label>ニュースのミュートキーワード</label>
+      <input type="text" id="muteKeywordsInput" placeholder="例：野球, 芸能, 占い（カンマ区切り）">
+      <div class="field-hint">
+        カンマ区切りでキーワードを登録すると、見出しにそのキーワードを含む世界情勢・AI関連ニュースを表示しないようにできます。
+      </div>
+    </div>
+    <button class="btn btn-secondary" onclick="saveMuteKeywords()">ミュート設定を保存</button>
+    <div class="status-msg" id="muteKeywordsStatus"></div>
+
     <div class="settings-actions">
       <button class="btn btn-secondary" onclick="closeSettings()">閉じる</button>
     </div>
@@ -377,9 +389,11 @@ function openSettings() {
   document.getElementById('gClientId').value = s.googleClientId || '';
   document.getElementById('gApiKey').value = s.googleApiKey || '';
   document.getElementById('healthSheetId').value = s.healthSheetId || '';
+  document.getElementById('muteKeywordsInput').value = (s.muteKeywords || []).join(', ');
   document.getElementById('citySearchStatus').textContent = '';
   document.getElementById('googleSettingsStatus').textContent = '';
   document.getElementById('healthSheetStatus').textContent = '';
+  document.getElementById('muteKeywordsStatus').textContent = '';
   // 開くたびに非表示状態にリセットする
   resetSecretVisibility('gClientId');
   resetSecretVisibility('gApiKey');
@@ -784,9 +798,10 @@ async function loadWorldNews() {
     var rssUrl = 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=ja&gl=JP&ceid=JP:ja';
     var res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl));
     var data = await res.json();
-    var items = (data.items || []).slice(0, 6);
+    var keywords = getMuteKeywords();
+    var items = (data.items || []).filter(function(a) { return !isMutedTitle(a.title, keywords); }).slice(0, 6);
     if (items.length === 0) {
-      bodyEl.innerHTML = '<div class="status-msg">ニュースが見つかりませんでした</div>';
+      bodyEl.innerHTML = '<div class="status-msg">ニュースが見つかりませんでした（ミュート設定の影響の可能性があります）</div>';
       return;
     }
     bodyEl.innerHTML = '<div class="news-list">' +
@@ -810,9 +825,10 @@ async function loadAiNews() {
     var rssUrl = 'https://news.google.com/rss/search?q=AI&hl=ja&gl=JP&ceid=JP:ja';
     var res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl));
     var data = await res.json();
-    var items = (data.items || []).slice(0, 6);
+    var keywords = getMuteKeywords();
+    var items = (data.items || []).filter(function(a) { return !isMutedTitle(a.title, keywords); }).slice(0, 6);
     if (items.length === 0) {
-      bodyEl.innerHTML = '<div class="status-msg">記事が見つかりませんでした</div>';
+      bodyEl.innerHTML = '<div class="status-msg">記事が見つかりませんでした（ミュート設定の影響の可能性があります）</div>';
       return;
     }
     bodyEl.innerHTML = '<div class="news-list">' +
@@ -876,6 +892,27 @@ function saveHealthSheetSettings() {
   statusEl.textContent = sheetId ? '保存しました' : '設定を解除しました';
   statusEl.className = 'status-msg';
   loadHealthData();
+}
+
+function saveMuteKeywords() {
+  var raw = document.getElementById('muteKeywordsInput').value;
+  var keywords = raw.split(',').map(function(k) { return k.trim(); }).filter(Boolean);
+  saveSettings({ muteKeywords: keywords });
+  var statusEl = document.getElementById('muteKeywordsStatus');
+  statusEl.textContent = keywords.length > 0 ? keywords.length + '件のキーワードを保存しました' : 'ミュート設定を解除しました';
+  statusEl.className = 'status-msg';
+  loadWorldNews();
+  loadAiNews();
+}
+
+function getMuteKeywords() {
+  var s = loadSettings();
+  return (s.muteKeywords || []).map(function(k) { return k.toLowerCase(); });
+}
+
+function isMutedTitle(title, keywords) {
+  var lower = String(title || '').toLowerCase();
+  return keywords.some(function(k) { return k && lower.indexOf(k) !== -1; });
 }
 
 function initGapiClient() {
