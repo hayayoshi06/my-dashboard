@@ -710,18 +710,19 @@ async function renderWeather(lat, lon, placeName) {
     var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat +
       '&longitude=' + lon +
       '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m' +
-      '&daily=temperature_2m_max,temperature_2m_min&timezone=auto';
+      '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto';
     var res = await fetch(url);
     var data = await res.json();
     var cur = data.current;
     var desc = weatherCodeMap[cur.weather_code] || '不明';
     var maxT = data.daily.temperature_2m_max[0];
     var minT = data.daily.temperature_2m_min[0];
+    var pop = data.daily.precipitation_probability_max ? data.daily.precipitation_probability_max[0] : null;
     bodyEl.innerHTML =
       '<div class="weather-row">' +
         '<div class="weather-temp">' + Math.round(cur.temperature_2m) + '℃</div>' +
         '<div>' +
-          '<div class="weather-desc">' + desc + '</div>' +
+          '<div class="weather-desc">' + desc + (pop !== null ? ' ／ 降水確率 ' + pop + '%' : '') + '</div>' +
           '<div class="weather-meta">最高 ' + Math.round(maxT) + '℃ / 最低 ' + Math.round(minT) + '℃</div>' +
           '<div class="weather-meta">湿度 ' + cur.relative_humidity_2m + '% ／ 風速 ' + cur.wind_speed_10m + 'm/s</div>' +
         '</div>' +

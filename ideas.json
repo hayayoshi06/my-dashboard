@@ -45,7 +45,7 @@
     "date": "2026-10-20",
     "title": "天気に降水確率を追加表示する",
     "description": "現在は気温・最高最低・湿度・風速のみ表示している。Open-Meteoのprecipitation_probability（降水確率）を追加取得し、傘が必要か判断しやすくする。",
-    "done": false
+    "done": true
   },
   {
     "date": "2026-10-20",
