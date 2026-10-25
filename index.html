@@ -470,8 +470,12 @@ function sortedTodos() {
 
 var editingTodoId = null;
 
+var BASE_TITLE = document.title;
+
 function renderTodos() {
   var todos = sortedTodos();
+  // 未完了タスク数をタブタイトルに反映する（完了したタスクは一覧から消えるため、残っている件数＝未完了数）
+  document.title = todos.length > 0 ? '(' + todos.length + ') ' + BASE_TITLE : BASE_TITLE;
   var listEl = document.getElementById('todoList');
   if (todos.length === 0) {
     listEl.innerHTML = '<div class="status-msg">タスクはありません</div>';
