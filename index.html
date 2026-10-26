@@ -75,6 +75,23 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .weather-desc { font-size: 0.95em; color: #444; }
 .weather-meta { font-size: 0.8em; color: #888; margin-top: 4px; }
 .weather-place { font-size: 0.85em; color: #1a56db; font-weight: bold; margin-bottom: 8px; }
+.weather-clickable { cursor: pointer; touch-action: manipulation; border-radius: 10px; margin: -6px; padding: 6px; }
+.weather-clickable:active { background: #eef2f8; }
+.weather-tap-hint { font-size: 0.7em; color: #888; margin-top: 6px; }
+
+/* 週間天気予報（モーダル） */
+.weekly-forecast { display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px; }
+.weekly-forecast-day {
+  flex: 1; min-width: 78px; background: #f8f9fa; border-radius: 10px;
+  padding: 10px 6px; text-align: center;
+}
+.weekly-forecast-date { font-size: 0.75em; color: #888; font-weight: bold; }
+.weekly-forecast-icon { font-size: 1.5em; margin: 6px 0 2px; }
+.weekly-forecast-desc { font-size: 0.68em; color: #555; min-height: 2.6em; }
+.weekly-forecast-temp { font-size: 0.78em; margin-top: 4px; }
+.weekly-forecast-temp .max { color: #b91c1c; font-weight: bold; }
+.weekly-forecast-temp .min { color: #1a56db; font-weight: bold; }
+.weekly-forecast-pop { font-size: 0.68em; color: #1a56db; margin-top: 4px; }
 
 /* ニュースカード */
 .news-list { display: flex; flex-direction: column; gap: 8px; }
@@ -195,9 +212,12 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       <div class="date-big" id="dateBig">-</div>
       <div class="date-sub" id="dateSub">-</div>
       <div class="date-weather-divider"></div>
-      <div class="card-title">☀️ 天気</div>
-      <div class="weather-place" id="weatherPlace">現在地を取得中…</div>
-      <div id="weatherBody"><div class="status-msg">読み込み中…</div></div>
+      <div class="weather-clickable" id="weatherClickArea" onclick="openWeeklyForecast()">
+        <div class="card-title">☀️ 天気</div>
+        <div class="weather-place" id="weatherPlace">現在地を取得中…</div>
+        <div id="weatherBody"><div class="status-msg">読み込み中…</div></div>
+        <div class="weather-tap-hint" id="weatherTapHint" style="display:none;">タップで週間予報を表示</div>
+      </div>
     </div>
 
     <div class="card">
@@ -372,6 +392,17 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
     <div id="healthDetailChart"></div>
     <div class="settings-actions">
       <button class="btn btn-secondary" onclick="closeHealthDetail()">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- 週間天気予報 -->
+<div class="overlay" id="weeklyForecastOverlay">
+  <div class="settings-panel">
+    <h2>週間天気予報</h2>
+    <div id="weeklyForecastBody"></div>
+    <div class="settings-actions">
+      <button class="btn btn-secondary" onclick="closeWeeklyForecast()">閉じる</button>
     </div>
   </div>
 </div>
@@ -732,16 +763,21 @@ async function reverseGeocode(lat, lon) {
   }
 }
 
+var weeklyForecastCache = null;
+
 async function renderWeather(lat, lon, placeName) {
   var placeEl = document.getElementById('weatherPlace');
   var bodyEl = document.getElementById('weatherBody');
+  var hintEl = document.getElementById('weatherTapHint');
   placeEl.textContent = '📍 ' + placeName;
   bodyEl.innerHTML = '<div class="status-msg">読み込み中…</div>';
+  hintEl.style.display = 'none';
+  weeklyForecastCache = null;
   try {
     var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat +
       '&longitude=' + lon +
       '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m' +
-      '&daily=temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto';
+      '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto';
     var res = await fetch(url);
     var data = await res.json();
     var cur = data.current;
@@ -758,10 +794,54 @@ async function renderWeather(lat, lon, placeName) {
           '<div class="weather-meta">湿度 ' + cur.relative_humidity_2m + '% ／ 風速 ' + cur.wind_speed_10m + 'm/s</div>' +
         '</div>' +
       '</div>';
+    weeklyForecastCache = data.daily;
+    hintEl.style.display = '';
   } catch (e) {
     bodyEl.innerHTML = '<div class="status-msg error">天気の取得に失敗しました：' + e.message + '</div>' +
       '<button class="btn btn-secondary" style="margin-top:8px;" onclick="loadWeather()">再試行</button>';
   }
+}
+
+// 週間天気予報のアイコン（天気コードをおおまかな絵文字に変換）
+function weatherCodeIcon(code) {
+  if (code === 0 || code === 1) return '☀️';
+  if (code === 2) return '⛅';
+  if (code === 3) return '☁️';
+  if (code === 45 || code === 48) return '🌫️';
+  if (code >= 51 && code <= 65) return '🌧️';
+  if (code >= 71 && code <= 75) return '❄️';
+  if (code >= 80 && code <= 82) return '🌦️';
+  if (code >= 95) return '⛈️';
+  return '🌡️';
+}
+
+var weekdayLabels = ['日', '月', '火', '水', '木', '金', '土'];
+
+function openWeeklyForecast() {
+  var bodyEl = document.getElementById('weeklyForecastBody');
+  if (!weeklyForecastCache) {
+    bodyEl.innerHTML = '<div class="status-msg">天気情報がまだ読み込まれていません</div>';
+  } else {
+    var d = weeklyForecastCache;
+    bodyEl.innerHTML = '<div class="weekly-forecast">' +
+      d.time.map(function(dateStr, i) {
+        var weekday = weekdayLabels[new Date(dateStr + 'T00:00:00').getDay()];
+        var pop = d.precipitation_probability_max ? d.precipitation_probability_max[i] : null;
+        return '<div class="weekly-forecast-day">' +
+          '<div class="weekly-forecast-date">' + formatShortDate(dateStr) + '（' + weekday + '）</div>' +
+          '<div class="weekly-forecast-icon">' + weatherCodeIcon(d.weather_code[i]) + '</div>' +
+          '<div class="weekly-forecast-desc">' + (weatherCodeMap[d.weather_code[i]] || '不明') + '</div>' +
+          '<div class="weekly-forecast-temp"><span class="max">' + Math.round(d.temperature_2m_max[i]) + '℃</span> / <span class="min">' + Math.round(d.temperature_2m_min[i]) + '℃</span></div>' +
+          (pop !== null ? '<div class="weekly-forecast-pop">☂ ' + pop + '%</div>' : '') +
+        '</div>';
+      }).join('') +
+    '</div>';
+  }
+  document.getElementById('weeklyForecastOverlay').classList.add('open');
+}
+
+function closeWeeklyForecast() {
+  document.getElementById('weeklyForecastOverlay').classList.remove('open');
 }
 
 function loadWeather() {
