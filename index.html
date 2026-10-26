@@ -156,6 +156,8 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: none; align-items: flex-end; justify-content: center; z-index: 10; }
 .overlay.open { display: flex; }
 .settings-panel { background: white; width: 100%; max-width: 760px; border-radius: 16px 16px 0 0; padding: 20px 18px 28px; max-height: 85vh; overflow-y: auto; }
+#healthDetailOverlay, #weeklyForecastOverlay { align-items: center; padding: 16px; }
+#healthDetailOverlay .settings-panel, #weeklyForecastOverlay .settings-panel { border-radius: 16px; max-height: 80vh; }
 .settings-panel h2 { font-size: 1.05em; margin-bottom: 14px; color: #1a1a1a; }
 .field-group { margin-bottom: 16px; }
 .field-group label { display: block; font-size: 0.82em; font-weight: bold; color: #444; margin-bottom: 6px; }
@@ -386,7 +388,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 </div>
 
 <!-- 健康データ詳細（過去14日の推移） -->
-<div class="overlay" id="healthDetailOverlay">
+<div class="overlay" id="healthDetailOverlay" onclick="if(event.target===this) closeHealthDetail()">
   <div class="settings-panel">
     <h2 id="healthDetailTitle">詳細</h2>
     <div id="healthDetailChart"></div>
@@ -397,7 +399,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 </div>
 
 <!-- 週間天気予報 -->
-<div class="overlay" id="weeklyForecastOverlay">
+<div class="overlay" id="weeklyForecastOverlay" onclick="if(event.target===this) closeWeeklyForecast()">
   <div class="settings-panel">
     <h2>週間天気予報</h2>
     <div id="weeklyForecastBody"></div>
