@@ -114,6 +114,12 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .cal-time { color: #3f3f46; font-weight: bold; min-width: 48px; }
 .cal-source { font-size: 0.72em; color: #71717a; margin-top: 2px; }
 
+/* 今日のタイムライン（予定＋今日期限のTODOの統合表示） */
+.timeline-list { display: flex; flex-direction: column; gap: 8px; }
+.timeline-item { display: flex; gap: 10px; padding: 8px 10px; background: #f4f4f5; border-radius: 8px; font-size: 0.88em; align-items: center; }
+.timeline-time { color: #3f3f46; font-weight: bold; min-width: 48px; flex-shrink: 0; }
+.timeline-text { flex: 1; }
+
 /* 健康データカード */
 .health-date { font-size: 0.8em; color: #71717a; margin-bottom: 10px; }
 .health-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
@@ -238,6 +244,13 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
         <button class="btn btn-primary" id="calConnectBtn" style="margin-top:8px;" onclick="connectGoogle()">Googleカレンダーに接続</button>
       </div>
     </div>
+  </div>
+
+  <!-- 今日のタイムライン（カレンダーの予定＋今日期限のTODOを統合表示） -->
+  <div class="card">
+    <div class="card-title">📋 今日のタイムライン</div>
+    <div class="card-sub">予定と今日期限のタスクをまとめて表示します</div>
+    <div id="todayTimelineBody"><div class="status-msg">読み込み中…</div></div>
   </div>
 
   <div class="cards-flow">
@@ -529,10 +542,65 @@ var editingTodoId = null;
 
 var BASE_TITLE = document.title;
 
+// 今日の日付をYYYY-MM-DD形式で返す（TODOのdueDateと比較するため）
+function todayDateStr() {
+  var d = new Date();
+  var mm = String(d.getMonth() + 1).padStart(2, '0');
+  var dd = String(d.getDate()).padStart(2, '0');
+  return d.getFullYear() + '-' + mm + '-' + dd;
+}
+
+// Googleカレンダーの今日の予定（loadTodayEventsが取得）をキャッシュしておき、
+// TODOの変更時にも再取得なしでタイムラインを再描画できるようにする
+var todayEventsCache = [];
+
+function renderTodayTimeline() {
+  var bodyEl = document.getElementById('todayTimelineBody');
+  if (!bodyEl) return;
+  var todayStr = todayDateStr();
+  var todayTodos = loadTodos()
+    .filter(function(t) { return t.dueDate === todayStr; })
+    .sort(function(a, b) { return priorityWeight(a) - priorityWeight(b); });
+
+  var untimed = [];
+  var timed = [];
+  todayEventsCache.forEach(function(ev) {
+    if (ev.start.dateTime) {
+      timed.push({
+        time: new Date(ev.start.dateTime).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }),
+        sortKey: ev.start.dateTime,
+        html: '🗓 ' + escHtml(ev.summary || '（無題）')
+      });
+    } else {
+      untimed.push({ time: '終日', html: '🗓 ' + escHtml(ev.summary || '（無題）') });
+    }
+  });
+  todayTodos.forEach(function(t) {
+    var priorityKey = PRIORITY_LABEL.hasOwnProperty(t.priority) ? t.priority : 'mid';
+    untimed.push({
+      time: '',
+      html: '✅ <span class="todo-priority ' + priorityKey + '">' + PRIORITY_LABEL[priorityKey] + '</span>' + escHtml(t.text)
+    });
+  });
+  timed.sort(function(a, b) { return a.sortKey < b.sortKey ? -1 : a.sortKey > b.sortKey ? 1 : 0; });
+
+  var entries = untimed.concat(timed);
+  if (entries.length === 0) {
+    bodyEl.innerHTML = '<div class="status-msg">今日の予定・タスクはありません</div>';
+    return;
+  }
+  bodyEl.innerHTML = '<div class="timeline-list">' +
+    entries.map(function(e) {
+      return '<div class="timeline-item"><div class="timeline-time">' + escHtml(e.time) + '</div><div class="timeline-text">' + e.html + '</div></div>';
+    }).join('') +
+    '</div>';
+}
+
 function renderTodos() {
   var todos = sortedTodos();
   // 未完了タスク数をタブタイトルに反映する（完了したタスクは一覧から消えるため、残っている件数＝未完了数）
   document.title = todos.length > 0 ? '(' + todos.length + ') ' + BASE_TITLE : BASE_TITLE;
+  renderTodayTimeline();
   var listEl = document.getElementById('todoList');
   if (todos.length === 0) {
     listEl.innerHTML = '<div class="status-msg">タスクはありません</div>';
@@ -1232,6 +1300,9 @@ async function loadTodayEvents() {
       return aTime < bTime ? -1 : aTime > bTime ? 1 : 0;
     });
 
+    todayEventsCache = items;
+    renderTodayTimeline();
+
     if (items.length === 0) {
       bodyEl.innerHTML = '<div class="status-msg">今日の予定はありません</div>';
       return;
@@ -1246,6 +1317,8 @@ async function loadTodayEvents() {
       }).join('') +
       '</div>';
   } catch (e) {
+    todayEventsCache = [];
+    renderTodayTimeline();
     var code = (e && e.status) || (e && e.result && e.result.error && e.result.error.code);
     if (code === 401) {
       // トークンが失効している場合はキャッシュを破棄し、再接続を促す
