@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>マイダッシュボード</title>
+
+<!-- PWA設定：iPhoneのホーム画面に追加してアプリのように起動できるようにする -->
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="theme-color" content="#27272a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ダッシュボード">
+
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html { font-size: 16px; }
@@ -1530,6 +1539,13 @@ setInterval(function() {
   loadWorldNews();
   loadAiNews();
 }, 30 * 60 * 1000);
+
+// PWA：ホーム画面に追加して起動した際に、外枠の読み込みを速く・安定させる
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('service-worker.js').catch(function() {});
+  });
+}
 </script>
 </body>
 </html>
