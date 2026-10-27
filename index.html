@@ -144,6 +144,12 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .health-bar.empty { background: #e4e4e7; }
 .health-bar-date { font-size: 0.6em; color: #71717a; margin-top: 6px; white-space: nowrap; }
 
+/* クイックメモカード */
+.quick-memo-textarea {
+  width: 100%; min-height: 120px; padding: 10px 12px; border: 1.5px solid #d4d4d8; border-radius: 8px;
+  font-size: 0.9em; font-family: inherit; background: #f4f4f5; color: #18181b; resize: vertical;
+}
+
 /* 改善アイデアカード */
 .idea-list { display: flex; flex-direction: column; gap: 10px; }
 .idea-item { padding: 12px; background: #f4f4f5; border-radius: 8px; border-left: 3px solid #d97706; }
@@ -291,6 +297,14 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       <div class="card-title">🤖 AI関連ニュース</div>
       <div class="card-sub">Google ニュース（「AI」検索）</div>
       <div id="aiNewsBody"><div class="status-msg">読み込み中…</div></div>
+    </div>
+
+    <!-- クイックメモ -->
+    <div class="card">
+      <div class="card-title">📝 クイックメモ</div>
+      <div class="card-sub">買い物リストやちょっとした思いつきを自由に書けるメモ欄です</div>
+      <textarea id="quickMemoInput" class="quick-memo-textarea" placeholder="ここに自由にメモできます…" oninput="saveQuickMemo()"></textarea>
+      <div class="status-msg" id="quickMemoStatus"></div>
     </div>
 
     <!-- 改善アイデア -->
@@ -504,6 +518,24 @@ function loadTodos() {
 }
 function saveTodos(todos) {
   localStorage.setItem(TODO_KEY, JSON.stringify(todos));
+}
+
+// ========== クイックメモ ==========
+var QUICK_MEMO_KEY = 'dashboardQuickMemo';
+var quickMemoStatusTimer = null;
+
+function loadQuickMemo() {
+  var el = document.getElementById('quickMemoInput');
+  el.value = localStorage.getItem(QUICK_MEMO_KEY) || '';
+}
+
+function saveQuickMemo() {
+  var el = document.getElementById('quickMemoInput');
+  localStorage.setItem(QUICK_MEMO_KEY, el.value);
+  var statusEl = document.getElementById('quickMemoStatus');
+  statusEl.textContent = '保存しました';
+  clearTimeout(quickMemoStatusTimer);
+  quickMemoStatusTimer = setTimeout(function() { statusEl.textContent = ''; }, 1500);
 }
 
 function formatDueDate(dateStr) {
@@ -1099,7 +1131,8 @@ function exportBackup() {
   var payload = {
     exportedAt: new Date().toISOString(),
     dashboardSettings: loadSettings(),
-    dashboardTodos: loadTodos()
+    dashboardTodos: loadTodos(),
+    dashboardQuickMemo: localStorage.getItem(QUICK_MEMO_KEY) || ''
   };
   var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   var url = URL.createObjectURL(blob);
@@ -1136,6 +1169,7 @@ function importBackup(event) {
       }
       localStorage.setItem(STORE_KEY, JSON.stringify(payload.dashboardSettings));
       localStorage.setItem(TODO_KEY, JSON.stringify(payload.dashboardTodos || []));
+      localStorage.setItem(QUICK_MEMO_KEY, payload.dashboardQuickMemo || '');
       statusEl.textContent = '復元しました。ページを再読み込みします…';
       statusEl.className = 'status-msg';
       setTimeout(function() { location.reload(); }, 800);
@@ -1484,6 +1518,7 @@ function escHtml(str) {
 
 // ========== 初期化 ==========
 renderTodos();
+loadQuickMemo();
 loadWeather();
 loadWorldNews();
 loadAiNews();
