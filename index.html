@@ -1475,7 +1475,7 @@ async function loadHealthData() {
         healthStat('👣', '歩数', last[1], '歩', 1) +
         healthStat('📏', '距離', formatNum1(last[2]), 'km', 2) +
         healthStat('🔥', 'アクティブエネルギー', last[3], 'kcal', 3) +
-        healthStat('😴', '睡眠時間', last[4], '時間', 4) +
+        healthStat('😴', '睡眠時間', formatNum1(last[4]), '時間', 4) +
         healthStat('❤️', '心拍数', formatNum2(last[5]), 'bpm', 5) +
         healthStat('⚖️', '体重', last[6], 'kg', 6) +
       '</div>';
@@ -1631,7 +1631,7 @@ function openHealthDetail(colIndex, label, unit) {
         var v = nums[i];
         var hasV = v !== null;
         var heightPct = hasV ? Math.max(4, Math.round((v / maxVal) * 100)) : 2;
-        var displayV = hasV ? (colIndex === 2 ? formatNum1(v) : colIndex === 5 ? formatNum2(v) : v) : '';
+        var displayV = hasV ? ((colIndex === 2 || colIndex === 4) ? formatNum1(v) : colIndex === 5 ? formatNum2(v) : v) : '';
         return '<div class="health-bar-col">' +
           '<div class="health-bar-value">' + displayV + '</div>' +
           '<div class="health-bar' + (hasV ? '' : ' empty') + '" style="height:' + heightPct + '%"></div>' +
