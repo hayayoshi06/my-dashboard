@@ -285,6 +285,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
         <button class="btn btn-primary" onclick="addTodo()">追加</button>
       </div>
       <div class="todo-list" id="todoList"></div>
+      <div class="status-msg" id="syncStatus"></div>
     </div>
 
     <!-- 健康データ -->
@@ -392,12 +393,13 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
     <hr style="margin:18px 0; border:none; border-top:1px solid #e4e4e7;">
 
     <div class="field-group">
-      <label>健康データ用 Google スプレッドシートID</label>
+      <label>健康データ・同期用 Google スプレッドシートID</label>
       <input type="text" id="healthSheetId" placeholder="例：1AbCDefGhIJKLmnoPQRstuVWxyZ">
       <div class="field-hint">
         スプレッドシートのURL（https://docs.google.com/spreadsheets/d/【ここがID】/edit）からIDをコピーして貼り付けてください。
         シート（タブ）名は「HealthData」にし、1行目を見出し（日付・歩数・距離km・アクティブエネルギーkcal・睡眠時間h・心拍数bpm・体重kg）にしてください。
-        スプレッドシートは非公開のままでよく、上記のGoogle認証でご自身のログイン時のみ読み込みます。
+        同じスプレッドシート内に「AppSync」という名前のタブが自動作成され、TODO・クイックメモをGoogleアカウントでログインした端末間で同期するのに使われます。
+        スプレッドシートは非公開のままでよく、上記のGoogle認証でご自身のログイン時のみ読み書きします。
       </div>
     </div>
     <button class="btn btn-secondary" onclick="saveHealthSheetSettings()">健康データ設定を保存</button>
@@ -525,13 +527,20 @@ function loadTodos() {
     return [];
   }
 }
-function saveTodos(todos) {
+// localStorageへの保存のみ行う（クラウド同期をトリガーしない）。クラウドから取得した内容を
+// そのままローカルへ反映する際など、無駄なpushを避けたい場合に使う
+function saveTodosLocalOnly(todos) {
   localStorage.setItem(TODO_KEY, JSON.stringify(todos));
+}
+function saveTodos(todos) {
+  saveTodosLocalOnly(todos);
+  pushSyncData();
 }
 
 // ========== クイックメモ ==========
 var QUICK_MEMO_KEY = 'dashboardQuickMemo';
 var quickMemoStatusTimer = null;
+var quickMemoSyncTimer = null;
 
 function loadQuickMemo() {
   var el = document.getElementById('quickMemoInput');
@@ -545,6 +554,10 @@ function saveQuickMemo() {
   statusEl.textContent = '保存しました';
   clearTimeout(quickMemoStatusTimer);
   quickMemoStatusTimer = setTimeout(function() { statusEl.textContent = ''; }, 1500);
+
+  // 入力のたびにクラウドへ送ると負荷が高いので、入力が止まってからまとめて同期する
+  clearTimeout(quickMemoSyncTimer);
+  quickMemoSyncTimer = setTimeout(function() { pushSyncData(); }, 1500);
 }
 
 function formatDueDate(dateStr) {
@@ -1213,6 +1226,7 @@ function tryAutoConnectGoogle() {
     gapi.client.setToken({ access_token: token });
     loadTodayEvents();
     loadHealthData();
+    pullSyncData();
   }
 }
 
@@ -1246,13 +1260,14 @@ function connectGoogle() {
     gapi.client.setToken({ access_token: cachedToken });
     loadTodayEvents();
     loadHealthData();
+    pullSyncData();
     return;
   }
 
   if (!gTokenClient) {
     gTokenClient = google.accounts.oauth2.initTokenClient({
       client_id: s.googleClientId,
-      scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets.readonly',
+      scope: 'https://www.googleapis.com/auth/calendar.readonly https://www.googleapis.com/auth/spreadsheets',
       callback: function(resp) {
         if (resp.error) {
           bodyEl.innerHTML = '<div class="status-msg error">認証に失敗しました：' + resp.error + '</div>';
@@ -1261,6 +1276,7 @@ function connectGoogle() {
         saveAccessToken(resp);
         loadTodayEvents();
         loadHealthData();
+        pullSyncData();
       }
     });
   }
@@ -1431,6 +1447,93 @@ async function loadHealthData() {
     }
     bodyEl.innerHTML = '<div class="status-msg error">健康データの取得に失敗しました：' + (e.message || JSON.stringify(e)) + '</div>' +
       '<button class="btn btn-secondary" style="margin-top:8px;" onclick="loadHealthData()">再試行</button>';
+  }
+}
+
+// ========== TODO・クイックメモのクラウド同期（健康データ用スプレッドシート内のAppSyncタブ経由） ==========
+var SYNC_SHEET_NAME = 'AppSync';
+
+function setSyncStatus(text, isError) {
+  var el = document.getElementById('syncStatus');
+  if (!el) return;
+  el.textContent = text;
+  el.className = isError ? 'status-msg error' : 'status-msg';
+}
+
+function canSync() {
+  var s = loadSettings();
+  return !!(s.healthSheetId && gapiInited && gapi.client.getToken());
+}
+
+// AppSyncタブが無ければ新規作成する
+async function ensureSyncSheetExists(spreadsheetId) {
+  try {
+    await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: spreadsheetId,
+      range: SYNC_SHEET_NAME + '!A1'
+    });
+  } catch (e) {
+    var code = (e && e.status) || (e && e.result && e.result.error && e.result.error.code);
+    if (code === 400) {
+      // シートが存在しないエラーの場合のみ新規作成する（それ以外は呼び出し元に投げる）
+      await gapi.client.sheets.spreadsheets.batchUpdate({
+        spreadsheetId: spreadsheetId,
+        resource: { requests: [{ addSheet: { properties: { title: SYNC_SHEET_NAME } } }] }
+      });
+    } else {
+      throw e;
+    }
+  }
+}
+
+// クラウド側のTODO・メモを読み込み、ローカルを上書きする（ログイン直後に1回呼ぶ）
+async function pullSyncData() {
+  if (!canSync()) return;
+  var s = loadSettings();
+  setSyncStatus('同期を確認中…');
+  try {
+    await ensureSyncSheetExists(s.healthSheetId);
+    var resp = await gapi.client.sheets.spreadsheets.values.get({
+      spreadsheetId: s.healthSheetId,
+      range: SYNC_SHEET_NAME + '!A1'
+    });
+    var raw = resp.result.values && resp.result.values[0] && resp.result.values[0][0];
+    if (!raw) {
+      // クラウドにまだデータがなければ、今のローカル内容を初回データとして書き込む
+      await pushSyncData();
+      return;
+    }
+    var data = JSON.parse(raw);
+    saveTodosLocalOnly(data.todos || []);
+    localStorage.setItem(QUICK_MEMO_KEY, data.quickMemo || '');
+    renderTodos();
+    loadQuickMemo();
+    setSyncStatus('他の端末のデータと同期しました');
+  } catch (e) {
+    setSyncStatus('同期に失敗しました：' + (e.message || JSON.stringify(e)), true);
+  }
+}
+
+// ローカルのTODO・メモをクラウドへ書き込む（変更のたびに呼ぶ）
+async function pushSyncData() {
+  if (!canSync()) return;
+  var s = loadSettings();
+  try {
+    await ensureSyncSheetExists(s.healthSheetId);
+    var payload = JSON.stringify({
+      todos: loadTodos(),
+      quickMemo: localStorage.getItem(QUICK_MEMO_KEY) || '',
+      updatedAt: new Date().toISOString()
+    });
+    await gapi.client.sheets.spreadsheets.values.update({
+      spreadsheetId: s.healthSheetId,
+      range: SYNC_SHEET_NAME + '!A1',
+      valueInputOption: 'RAW',
+      resource: { values: [[payload]] }
+    });
+    setSyncStatus('同期しました');
+  } catch (e) {
+    setSyncStatus('同期に失敗しました：' + (e.message || JSON.stringify(e)), true);
   }
 }
 
