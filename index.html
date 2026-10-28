@@ -408,6 +408,19 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
     <hr style="margin:18px 0; border:none; border-top:1px solid #e4e4e7;">
 
     <div class="field-group">
+      <label>ニュース取得用 Apps Script URL</label>
+      <input type="text" id="newsProxyUrlInput" placeholder="例：https://script.google.com/macros/s/AKfycbx.../exec">
+      <div class="field-hint">
+        健康データ送信で使っているApps ScriptのWebアプリURLと同じものを入力してください（同じスクリプトにニュース取得用の受け口を追加して使い回します）。
+        外部の無料中継サービス（rss2jsonなど）が不安定なため、Apps Script経由でGoogleニュースのRSSを取得する方式に変更しました。設定方法はREADMEを参照してください。
+      </div>
+    </div>
+    <button class="btn btn-secondary" onclick="saveNewsProxySettings()">ニュース取得設定を保存</button>
+    <div class="status-msg" id="newsProxyStatus"></div>
+
+    <hr style="margin:18px 0; border:none; border-top:1px solid #e4e4e7;">
+
+    <div class="field-group">
       <label>ニュースのミュートキーワード</label>
       <input type="text" id="muteKeywordsInput" placeholder="例：野球, 芸能, 占い（カンマ区切り）">
       <div class="field-hint">
@@ -484,10 +497,12 @@ function openSettings() {
   document.getElementById('gClientId').value = s.googleClientId || '';
   document.getElementById('gApiKey').value = s.googleApiKey || '';
   document.getElementById('healthSheetId').value = s.healthSheetId || '';
+  document.getElementById('newsProxyUrlInput').value = s.newsProxyUrl || '';
   document.getElementById('muteKeywordsInput').value = (s.muteKeywords || []).join(', ');
   document.getElementById('citySearchStatus').textContent = '';
   document.getElementById('googleSettingsStatus').textContent = '';
   document.getElementById('healthSheetStatus').textContent = '';
+  document.getElementById('newsProxyStatus').textContent = '';
   document.getElementById('muteKeywordsStatus').textContent = '';
   // 開くたびに非表示状態にリセットする
   resetSecretVisibility('gClientId');
@@ -1023,15 +1038,34 @@ function splitGoogleNewsTitle(title) {
   return { headline: title.slice(0, idx), source: title.slice(idx + 3) };
 }
 
-// ========== 世界情勢ニュース（rss2json経由でGoogleニュース「国際」RSSを取得：アカウント登録不要・CORS対応） ==========
+// 無料の中継サービス（rss2json・allorigins等）はGoogleニュースへのアクセスを
+// 不正利用とみなしてブロックすることが多く不安定なため、健康データと同じApps Script
+// 経由（サーバー側からRSSを取得するため、CORSや中継サービスのブロックの影響を受けない）に変更
+async function fetchGoogleNewsItems(feedType) {
+  var s = loadSettings();
+  if (!s.newsProxyUrl) throw new Error('設定からニュース取得用のApps Script URLを登録してください');
+  var res = await fetch(s.newsProxyUrl + '?feed=' + feedType);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  var xmlText = await res.text();
+  var xml = new DOMParser().parseFromString(xmlText, 'text/xml');
+  if (xml.querySelector('parsererror')) throw new Error('RSSの解析に失敗しました');
+  return Array.from(xml.querySelectorAll('item')).map(function(item) {
+    var titleEl = item.querySelector('title');
+    var linkEl = item.querySelector('link');
+    return {
+      title: titleEl ? titleEl.textContent : '',
+      link: linkEl ? linkEl.textContent : ''
+    };
+  });
+}
+
+// ========== 世界情勢ニュース（Googleニュース「国際」RSSを取得：アカウント登録不要・CORS対応） ==========
 async function loadWorldNews() {
   var bodyEl = document.getElementById('worldNewsBody');
   try {
-    var rssUrl = 'https://news.google.com/rss/headlines/section/topic/WORLD?hl=ja&gl=JP&ceid=JP:ja';
-    var res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl));
-    var data = await res.json();
+    var allItems = await fetchGoogleNewsItems('world');
     var keywords = getMuteKeywords();
-    var items = (data.items || []).filter(function(a) { return !isMutedTitle(a.title, keywords); }).slice(0, 6);
+    var items = allItems.filter(function(a) { return !isMutedTitle(a.title, keywords); }).slice(0, 6);
     if (items.length === 0) {
       bodyEl.innerHTML = '<div class="status-msg">ニュースが見つかりませんでした（ミュート設定の影響の可能性があります）</div>';
       return;
@@ -1050,15 +1084,13 @@ async function loadWorldNews() {
   }
 }
 
-// ========== AI関連ニュース（rss2json経由でGoogleニュースの「AI」検索RSSを取得：アカウント登録不要・CORS対応） ==========
+// ========== AI関連ニュース（Googleニュースの「AI」検索RSSを取得：アカウント登録不要・CORS対応） ==========
 async function loadAiNews() {
   var bodyEl = document.getElementById('aiNewsBody');
   try {
-    var rssUrl = 'https://news.google.com/rss/search?q=AI&hl=ja&gl=JP&ceid=JP:ja';
-    var res = await fetch('https://api.rss2json.com/v1/api.json?rss_url=' + encodeURIComponent(rssUrl));
-    var data = await res.json();
+    var allItems = await fetchGoogleNewsItems('ai');
     var keywords = getMuteKeywords();
-    var items = (data.items || []).filter(function(a) { return !isMutedTitle(a.title, keywords); }).slice(0, 6);
+    var items = allItems.filter(function(a) { return !isMutedTitle(a.title, keywords); }).slice(0, 6);
     if (items.length === 0) {
       bodyEl.innerHTML = '<div class="status-msg">記事が見つかりませんでした（ミュート設定の影響の可能性があります）</div>';
       return;
@@ -1124,6 +1156,16 @@ function saveHealthSheetSettings() {
   statusEl.textContent = sheetId ? '保存しました' : '設定を解除しました';
   statusEl.className = 'status-msg';
   loadHealthData();
+}
+
+function saveNewsProxySettings() {
+  var url = document.getElementById('newsProxyUrlInput').value.trim();
+  var statusEl = document.getElementById('newsProxyStatus');
+  saveSettings({ newsProxyUrl: url || null });
+  statusEl.textContent = url ? '保存しました' : '設定を解除しました';
+  statusEl.className = 'status-msg';
+  loadWorldNews();
+  loadAiNews();
 }
 
 function saveMuteKeywords() {
