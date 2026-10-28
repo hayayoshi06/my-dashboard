@@ -1465,6 +1465,20 @@ function canSync() {
   return !!(s.healthSheetId && gapiInited && gapi.client.getToken());
 }
 
+// 同期処理での認証エラーを共通処理する。権限不足（スコープ不足）や認証切れの場合は
+// キャッシュ済みトークンを破棄し、次回「Googleカレンダーに接続」を押した時に
+// 新しい権限で再認証ダイアログが出るようにする
+function handleSyncError(e) {
+  var errObj = e && e.result && e.result.error;
+  var code = (e && e.status) || (errObj && errObj.code);
+  if (code === 401 || code === 403) {
+    clearCachedToken();
+    setSyncStatus('同期の権限が不足しているか認証が切れています。「設定」を閉じてから「Googleカレンダーに接続」を押し、再認証してください', true);
+    return;
+  }
+  setSyncStatus('同期に失敗しました：' + (e.message || JSON.stringify(e)), true);
+}
+
 // AppSyncタブが無ければ新規作成する
 async function ensureSyncSheetExists(spreadsheetId) {
   try {
@@ -1510,7 +1524,7 @@ async function pullSyncData() {
     loadQuickMemo();
     setSyncStatus('他の端末のデータと同期しました');
   } catch (e) {
-    setSyncStatus('同期に失敗しました：' + (e.message || JSON.stringify(e)), true);
+    handleSyncError(e);
   }
 }
 
@@ -1533,7 +1547,7 @@ async function pushSyncData() {
     });
     setSyncStatus('同期しました');
   } catch (e) {
-    setSyncStatus('同期に失敗しました：' + (e.message || JSON.stringify(e)), true);
+    handleSyncError(e);
   }
 }
 
