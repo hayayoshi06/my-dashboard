@@ -75,9 +75,14 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 }
 .todo-group-title {
   font-size: 0.78em; font-weight: bold; color: #71717a;
-  padding-top: 4px; border-top: 1px solid #e4e4e7;
+  padding: 6px 2px 4px; border-top: 1px solid #e4e4e7;
+  cursor: pointer; user-select: none; touch-action: manipulation;
+  display: flex; align-items: center; gap: 6px;
 }
 .todo-group-title:first-child { padding-top: 0; border-top: none; }
+.todo-group-title:active { color: #3f3f46; }
+.todo-group-arrow { font-size: 0.85em; }
+.todo-group-count { font-weight: normal; color: #a1a1aa; }
 .todo-date { font-size: 0.75em; color: #71717a; margin-top: 2px; }
 .todo-date.overdue { color: #dc2626; font-weight: bold; }
 .todo-date.today { color: #d97706; font-weight: bold; }
@@ -87,10 +92,6 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 }
 .todo-del-btn {
   background: none; border: none; color: #dc2626; font-size: 1.1em; cursor: pointer;
-  padding: 4px 8px; line-height: 1; font-family: inherit;
-}
-.todo-memo-btn {
-  background: none; border: none; color: #71717a; font-size: 1em; cursor: pointer;
   padding: 4px 8px; line-height: 1; font-family: inherit;
 }
 .todo-memo-text {
@@ -633,23 +634,23 @@ function sortedTodos() {
 }
 
 var editingTodoId = null;
-// メモを開いて表示中のTODOのIDを保持する（複数同時に開ける）
-var expandedMemoIds = {};
-
-function toggleTodoMemo(id) {
-  if (expandedMemoIds[id]) {
-    delete expandedMemoIds[id];
-  } else {
-    expandedMemoIds[id] = true;
-  }
-  renderTodos();
-}
 
 // カテゴリの表示順（この順でグループ分け表示する。該当しない値は「その他」にまとめる）
 var TODO_CATEGORY_ORDER = ['プライベート', '仕事', 'その他'];
+// 折りたたまれているカテゴリグループ名を保持する
+var collapsedCategoryGroups = {};
 
 function todoCategoryGroup(t) {
   return (t.category === 'プライベート' || t.category === '仕事') ? t.category : 'その他';
+}
+
+function toggleCategoryGroup(groupName) {
+  if (collapsedCategoryGroups[groupName]) {
+    delete collapsedCategoryGroups[groupName];
+  } else {
+    collapsedCategoryGroups[groupName] = true;
+  }
+  renderTodos();
 }
 
 var BASE_TITLE = document.title;
@@ -729,8 +730,14 @@ function renderTodos() {
   listEl.innerHTML = TODO_CATEGORY_ORDER.map(function(groupName) {
     var groupTodos = groups[groupName];
     if (groupTodos.length === 0) return '';
-    return '<div class="todo-group-title">' + escHtml(groupName) + '</div>' +
-      groupTodos.map(renderTodoItemHtml).join('');
+    var isCollapsed = !!collapsedCategoryGroups[groupName];
+    var arrow = isCollapsed ? '▶' : '▼';
+    var titleHtml = '<div class="todo-group-title" onclick="toggleCategoryGroup(\'' + groupName + '\')">' +
+      escHtml(groupName) + ' <span class="todo-group-arrow">' + arrow + '</span>' +
+      ' <span class="todo-group-count">' + groupTodos.length + '件</span>' +
+    '</div>';
+    if (isCollapsed) return titleHtml;
+    return titleHtml + groupTodos.map(renderTodoItemHtml).join('');
   }).join('');
 }
 
@@ -771,19 +778,17 @@ function renderTodoItemHtml(t) {
         urgencyCls = ' urgency-' + info.cls;
       }
     }
-    var memoOpenCls = (t.memo && expandedMemoIds[t.id]) ? ' memo-open' : '';
+    var memoCls = t.memo ? ' memo-open' : '';
     var priorityHtml = '<span class="todo-priority ' + priorityKey + '">' + PRIORITY_LABEL[priorityKey] + '</span>';
     var categoryHtml = t.category ? '<span class="todo-category">' + escHtml(t.category) + '</span>' : '';
-    var memoBtnHtml = t.memo ? '<button class="todo-memo-btn" onclick="toggleTodoMemo(' + t.id + ')">📝</button>' : '';
-    var memoTextHtml = (t.memo && expandedMemoIds[t.id]) ? '<div class="todo-memo-text">' + escHtml(t.memo) + '</div>' : '';
-    return '<div class="todo-item' + urgencyCls + memoOpenCls + '" data-id="' + t.id + '">' +
+    var memoTextHtml = t.memo ? '<div class="todo-memo-text">' + escHtml(t.memo) + '</div>' : '';
+    return '<div class="todo-item' + urgencyCls + memoCls + '" data-id="' + t.id + '">' +
       '<input type="checkbox" onchange="completeTodo(' + t.id + ')">' +
       '<div class="todo-main">' +
         '<div class="todo-text">' + priorityHtml + categoryHtml + escHtml(t.text) + '</div>' +
         dateHtml +
         memoTextHtml +
       '</div>' +
-      memoBtnHtml +
       '<button class="todo-edit-btn" onclick="editTodo(' + t.id + ')">✎</button>' +
       '<button class="todo-del-btn" onclick="deleteTodo(' + t.id + ')">✕</button>' +
     '</div>';
