@@ -78,6 +78,11 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
   border-radius: 10px; margin-right: 6px; vertical-align: middle;
   background: #ede9fe; color: #6d28d9;
 }
+.todo-group-title {
+  font-size: 0.78em; font-weight: bold; color: #71717a;
+  padding-top: 4px; border-top: 1px solid #e4e4e7;
+}
+.todo-group-title:first-child { padding-top: 0; border-top: none; }
 .todo-date { font-size: 0.75em; color: #71717a; margin-top: 2px; }
 .todo-date.overdue { color: #dc2626; font-weight: bold; }
 .todo-date.today { color: #d97706; font-weight: bold; }
@@ -296,7 +301,10 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
         <input type="text" id="todoMemoInput" placeholder="メモ（任意）">
       </div>
       <div class="todo-add-row">
-        <input type="text" id="todoCategoryInput" placeholder="カテゴリ（任意）" style="flex:1;">
+        <select id="todoCategoryInput" style="flex:1;">
+          <option value="プライベート">プライベート</option>
+          <option value="仕事">仕事</option>
+        </select>
       </div>
       <div class="todo-add-row">
         <select id="todoPriorityInput">
@@ -306,9 +314,6 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
         </select>
         <input type="date" id="todoDateInput">
         <button class="btn btn-primary" onclick="addTodo()">追加</button>
-      </div>
-      <div class="todo-add-row" id="todoCategoryFilterRow" style="display:none;">
-        <select id="todoCategoryFilterInput" onchange="onTodoCategoryFilterChange()" style="flex:1;"></select>
       </div>
       <div class="todo-list" id="todoList"></div>
       <div class="status-msg" id="syncStatus"></div>
@@ -647,34 +652,11 @@ function toggleTodoMemo(id) {
   renderTodos();
 }
 
-// カテゴリによる絞り込み（'all'は絞り込みなし）
-var todoCategoryFilter = 'all';
+// カテゴリの表示順（この順でグループ分け表示する。該当しない値は「その他」にまとめる）
+var TODO_CATEGORY_ORDER = ['プライベート', '仕事', 'その他'];
 
-function onTodoCategoryFilterChange() {
-  todoCategoryFilter = document.getElementById('todoCategoryFilterInput').value;
-  renderTodos();
-}
-
-// 現在のTODOに登録されているカテゴリ一覧（重複なし）を元に、絞り込み用セレクトを更新する
-function renderCategoryFilter(todos) {
-  var rowEl = document.getElementById('todoCategoryFilterRow');
-  var selectEl = document.getElementById('todoCategoryFilterInput');
-  var categories = [];
-  todos.forEach(function(t) {
-    if (t.category && categories.indexOf(t.category) === -1) categories.push(t.category);
-  });
-  if (categories.length === 0) {
-    rowEl.style.display = 'none';
-    todoCategoryFilter = 'all';
-    return;
-  }
-  rowEl.style.display = '';
-  if (categories.indexOf(todoCategoryFilter) === -1) todoCategoryFilter = 'all';
-  categories.sort();
-  selectEl.innerHTML = '<option value="all">すべてのカテゴリ</option>' +
-    categories.map(function(c) {
-      return '<option value="' + escHtml(c) + '"' + (c === todoCategoryFilter ? ' selected' : '') + '>' + escHtml(c) + '</option>';
-    }).join('');
+function todoCategoryGroup(t) {
+  return (t.category === 'プライベート' || t.category === '仕事') ? t.category : 'その他';
 }
 
 var BASE_TITLE = document.title;
@@ -738,18 +720,27 @@ function renderTodos() {
   // 未完了タスク数をタブタイトルに反映する（完了したタスクは一覧から消えるため、残っている件数＝未完了数）
   document.title = todos.length > 0 ? '(' + todos.length + ') ' + BASE_TITLE : BASE_TITLE;
   renderTodayTimeline();
-  renderCategoryFilter(todos);
   var listEl = document.getElementById('todoList');
   if (todos.length === 0) {
     listEl.innerHTML = '<div class="status-msg">タスクはありません</div>';
     return;
   }
-  var visibleTodos = todoCategoryFilter === 'all' ? todos : todos.filter(function(t) { return t.category === todoCategoryFilter; });
-  if (visibleTodos.length === 0) {
-    listEl.innerHTML = '<div class="status-msg">このカテゴリのタスクはありません</div>';
-    return;
-  }
-  listEl.innerHTML = visibleTodos.map(function(t) {
+
+  // カテゴリごとにグループ分けする（sortedTodosの時点で期日の近い順になっているため、
+  // グループ分けしてもグループ内の並び順＝期日が近い順はそのまま維持される）
+  var groups = {};
+  TODO_CATEGORY_ORDER.forEach(function(c) { groups[c] = []; });
+  todos.forEach(function(t) { groups[todoCategoryGroup(t)].push(t); });
+
+  listEl.innerHTML = TODO_CATEGORY_ORDER.map(function(groupName) {
+    var groupTodos = groups[groupName];
+    if (groupTodos.length === 0) return '';
+    return '<div class="todo-group-title">' + escHtml(groupName) + '</div>' +
+      groupTodos.map(renderTodoItemHtml).join('');
+  }).join('');
+}
+
+function renderTodoItemHtml(t) {
     var priorityKey = PRIORITY_LABEL.hasOwnProperty(t.priority) ? t.priority : 'mid';
 
     if (t.id === editingTodoId) {
@@ -761,7 +752,10 @@ function renderTodos() {
           '<input type="text" id="todoEditMemo-' + t.id + '" placeholder="メモ（任意）" value="' + escHtml(t.memo || '') + '">' +
         '</div>' +
         '<div class="todo-add-row">' +
-          '<input type="text" id="todoEditCategory-' + t.id + '" placeholder="カテゴリ（任意）" value="' + escHtml(t.category || '') + '">' +
+          '<select id="todoEditCategory-' + t.id + '" style="flex:1;">' +
+            '<option value="プライベート"' + (t.category === '仕事' ? '' : ' selected') + '>プライベート</option>' +
+            '<option value="仕事"' + (t.category === '仕事' ? ' selected' : '') + '>仕事</option>' +
+          '</select>' +
         '</div>' +
         '<div class="todo-add-row">' +
           '<select id="todoEditPriority-' + t.id + '">' +
@@ -800,7 +794,6 @@ function renderTodos() {
       '<button class="todo-edit-btn" onclick="editTodo(' + t.id + ')">✎</button>' +
       '<button class="todo-del-btn" onclick="deleteTodo(' + t.id + ')">✕</button>' +
     '</div>';
-  }).join('');
 }
 
 function addTodo() {
