@@ -131,6 +131,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .news-list { display: flex; flex-direction: column; gap: 8px; }
 .news-item { display: block; padding: 10px 12px; background: #f4f4f5; border-radius: 8px; text-decoration: none; color: #18181b; font-size: 0.88em; line-height: 1.5; border: 1px solid #e4e4e7; }
 .news-item:active { background: #e4e4e7; }
+.news-item.read { color: #a1a1aa; opacity: 0.7; }
 .news-item .src { display: block; font-size: 0.75em; color: #3f3f46; margin-top: 4px; font-weight: bold; }
 
 /* カレンダーカード */
@@ -1158,6 +1159,40 @@ async function fetchGoogleNewsItems(feedType) {
   });
 }
 
+// ========== ニュースの既読管理（クリックしたURLをlocalStorageに記録） ==========
+var READ_NEWS_KEY = 'dashboardReadNews';
+
+function loadReadNewsUrls() {
+  try {
+    return JSON.parse(localStorage.getItem(READ_NEWS_KEY)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+
+function markNewsAsRead(url, linkEl) {
+  var urls = loadReadNewsUrls();
+  if (urls.indexOf(url) === -1) {
+    urls.push(url);
+    // 際限なく増え続けないよう、直近500件までに制限する
+    if (urls.length > 500) urls = urls.slice(urls.length - 500);
+    localStorage.setItem(READ_NEWS_KEY, JSON.stringify(urls));
+  }
+  if (linkEl) linkEl.classList.add('read');
+}
+
+function renderNewsList(items, readUrls) {
+  return '<div class="news-list">' +
+    items.map(function(a) {
+      var parsed = splitGoogleNewsTitle(a.title);
+      var isRead = readUrls.indexOf(a.link) !== -1;
+      return '<a class="news-item' + (isRead ? ' read' : '') + '" href="' + a.link + '" target="_blank" rel="noopener noreferrer" onclick="markNewsAsRead(this.href, this)">' +
+        escHtml(parsed.headline) +
+      '</a>';
+    }).join('') +
+    '</div>';
+}
+
 // ========== 世界情勢ニュース（Googleニュース「国際」RSSを取得：アカウント登録不要・CORS対応） ==========
 async function loadWorldNews() {
   var bodyEl = document.getElementById('worldNewsBody');
@@ -1169,14 +1204,7 @@ async function loadWorldNews() {
       bodyEl.innerHTML = '<div class="status-msg">ニュースが見つかりませんでした（ミュート設定の影響の可能性があります）</div>';
       return;
     }
-    bodyEl.innerHTML = '<div class="news-list">' +
-      items.map(function(a) {
-        var parsed = splitGoogleNewsTitle(a.title);
-        return '<a class="news-item" href="' + a.link + '" target="_blank" rel="noopener noreferrer">' +
-          escHtml(parsed.headline) +
-        '</a>';
-      }).join('') +
-      '</div>';
+    bodyEl.innerHTML = renderNewsList(items, loadReadNewsUrls());
   } catch (e) {
     bodyEl.innerHTML = '<div class="status-msg error">ニュースの取得に失敗しました：' + e.message + '</div>' +
       '<button class="btn btn-secondary" style="margin-top:8px;" onclick="loadWorldNews()">再試行</button>';
@@ -1194,14 +1222,7 @@ async function loadAiNews() {
       bodyEl.innerHTML = '<div class="status-msg">記事が見つかりませんでした（ミュート設定の影響の可能性があります）</div>';
       return;
     }
-    bodyEl.innerHTML = '<div class="news-list">' +
-      items.map(function(a) {
-        var parsed = splitGoogleNewsTitle(a.title);
-        return '<a class="news-item" href="' + a.link + '" target="_blank" rel="noopener noreferrer">' +
-          escHtml(parsed.headline) +
-        '</a>';
-      }).join('') +
-      '</div>';
+    bodyEl.innerHTML = renderNewsList(items, loadReadNewsUrls());
   } catch (e) {
     bodyEl.innerHTML = '<div class="status-msg error">記事の取得に失敗しました：' + e.message + '</div>' +
       '<button class="btn btn-secondary" style="margin-top:8px;" onclick="loadAiNews()">再試行</button>';
