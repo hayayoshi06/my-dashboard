@@ -73,6 +73,11 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .todo-priority.high { background: #fee2e2; color: #b91c1c; }
 .todo-priority.mid { background: #fef3c7; color: #b45309; }
 .todo-priority.low { background: #e4e4e7; color: #3f3f46; }
+.todo-category {
+  display: inline-block; font-size: 0.7em; font-weight: bold; padding: 2px 8px;
+  border-radius: 10px; margin-right: 6px; vertical-align: middle;
+  background: #ede9fe; color: #6d28d9;
+}
 .todo-date { font-size: 0.75em; color: #71717a; margin-top: 2px; }
 .todo-date.overdue { color: #dc2626; font-weight: bold; }
 .todo-date.today { color: #d97706; font-weight: bold; }
@@ -290,6 +295,9 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
         <input type="text" id="todoMemoInput" placeholder="メモ（任意）">
       </div>
       <div class="todo-add-row">
+        <input type="text" id="todoCategoryInput" placeholder="カテゴリ（任意）" style="flex:1;">
+      </div>
+      <div class="todo-add-row">
         <select id="todoPriorityInput">
           <option value="high">高</option>
           <option value="mid" selected>中</option>
@@ -297,6 +305,9 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
         </select>
         <input type="date" id="todoDateInput">
         <button class="btn btn-primary" onclick="addTodo()">追加</button>
+      </div>
+      <div class="todo-add-row" id="todoCategoryFilterRow" style="display:none;">
+        <select id="todoCategoryFilterInput" onchange="onTodoCategoryFilterChange()" style="flex:1;"></select>
       </div>
       <div class="todo-list" id="todoList"></div>
       <div class="status-msg" id="syncStatus"></div>
@@ -635,6 +646,36 @@ function toggleTodoMemo(id) {
   renderTodos();
 }
 
+// カテゴリによる絞り込み（'all'は絞り込みなし）
+var todoCategoryFilter = 'all';
+
+function onTodoCategoryFilterChange() {
+  todoCategoryFilter = document.getElementById('todoCategoryFilterInput').value;
+  renderTodos();
+}
+
+// 現在のTODOに登録されているカテゴリ一覧（重複なし）を元に、絞り込み用セレクトを更新する
+function renderCategoryFilter(todos) {
+  var rowEl = document.getElementById('todoCategoryFilterRow');
+  var selectEl = document.getElementById('todoCategoryFilterInput');
+  var categories = [];
+  todos.forEach(function(t) {
+    if (t.category && categories.indexOf(t.category) === -1) categories.push(t.category);
+  });
+  if (categories.length === 0) {
+    rowEl.style.display = 'none';
+    todoCategoryFilter = 'all';
+    return;
+  }
+  rowEl.style.display = '';
+  if (categories.indexOf(todoCategoryFilter) === -1) todoCategoryFilter = 'all';
+  categories.sort();
+  selectEl.innerHTML = '<option value="all">すべてのカテゴリ</option>' +
+    categories.map(function(c) {
+      return '<option value="' + escHtml(c) + '"' + (c === todoCategoryFilter ? ' selected' : '') + '>' + escHtml(c) + '</option>';
+    }).join('');
+}
+
 var BASE_TITLE = document.title;
 
 // 今日の日付をYYYY-MM-DD形式で返す（TODOのdueDateと比較するため）
@@ -696,12 +737,18 @@ function renderTodos() {
   // 未完了タスク数をタブタイトルに反映する（完了したタスクは一覧から消えるため、残っている件数＝未完了数）
   document.title = todos.length > 0 ? '(' + todos.length + ') ' + BASE_TITLE : BASE_TITLE;
   renderTodayTimeline();
+  renderCategoryFilter(todos);
   var listEl = document.getElementById('todoList');
   if (todos.length === 0) {
     listEl.innerHTML = '<div class="status-msg">タスクはありません</div>';
     return;
   }
-  listEl.innerHTML = todos.map(function(t) {
+  var visibleTodos = todoCategoryFilter === 'all' ? todos : todos.filter(function(t) { return t.category === todoCategoryFilter; });
+  if (visibleTodos.length === 0) {
+    listEl.innerHTML = '<div class="status-msg">このカテゴリのタスクはありません</div>';
+    return;
+  }
+  listEl.innerHTML = visibleTodos.map(function(t) {
     var priorityKey = PRIORITY_LABEL.hasOwnProperty(t.priority) ? t.priority : 'mid';
 
     if (t.id === editingTodoId) {
@@ -711,6 +758,9 @@ function renderTodos() {
         '</div>' +
         '<div class="todo-add-row">' +
           '<input type="text" id="todoEditMemo-' + t.id + '" placeholder="メモ（任意）" value="' + escHtml(t.memo || '') + '">' +
+        '</div>' +
+        '<div class="todo-add-row">' +
+          '<input type="text" id="todoEditCategory-' + t.id + '" placeholder="カテゴリ（任意）" value="' + escHtml(t.category || '') + '">' +
         '</div>' +
         '<div class="todo-add-row">' +
           '<select id="todoEditPriority-' + t.id + '">' +
@@ -735,12 +785,13 @@ function renderTodos() {
       }
     }
     var priorityHtml = '<span class="todo-priority ' + priorityKey + '">' + PRIORITY_LABEL[priorityKey] + '</span>';
+    var categoryHtml = t.category ? '<span class="todo-category">' + escHtml(t.category) + '</span>' : '';
     var memoBtnHtml = t.memo ? '<button class="todo-memo-btn" onclick="toggleTodoMemo(' + t.id + ')">📝</button>' : '';
     var memoTextHtml = (t.memo && expandedMemoIds[t.id]) ? '<div class="todo-memo-text">' + escHtml(t.memo) + '</div>' : '';
     return '<div class="todo-item' + urgencyCls + '" data-id="' + t.id + '">' +
       '<input type="checkbox" onchange="completeTodo(' + t.id + ')">' +
       '<div class="todo-main">' +
-        '<div class="todo-text">' + priorityHtml + escHtml(t.text) + '</div>' +
+        '<div class="todo-text">' + priorityHtml + categoryHtml + escHtml(t.text) + '</div>' +
         dateHtml +
         memoTextHtml +
       '</div>' +
@@ -754,15 +805,20 @@ function renderTodos() {
 function addTodo() {
   var input = document.getElementById('todoInput');
   var memoInput = document.getElementById('todoMemoInput');
+  var categoryInput = document.getElementById('todoCategoryInput');
   var dateInput = document.getElementById('todoDateInput');
   var priorityInput = document.getElementById('todoPriorityInput');
   var text = input.value.trim();
   if (!text) return;
   var todos = loadTodos();
-  todos.push({ id: Date.now(), text: text, memo: memoInput.value.trim() || null, dueDate: dateInput.value || null, priority: priorityInput.value });
+  todos.push({
+    id: Date.now(), text: text, memo: memoInput.value.trim() || null,
+    category: categoryInput.value.trim() || null, dueDate: dateInput.value || null, priority: priorityInput.value
+  });
   saveTodos(todos);
   input.value = '';
   memoInput.value = '';
+  categoryInput.value = '';
   dateInput.value = '';
   renderTodos();
 }
@@ -793,6 +849,7 @@ function cancelTodoEdit() {
 function saveTodoEdit(id) {
   var textInput = document.getElementById('todoEditText-' + id);
   var memoInput = document.getElementById('todoEditMemo-' + id);
+  var categoryInput = document.getElementById('todoEditCategory-' + id);
   var dateInput = document.getElementById('todoEditDate-' + id);
   var priorityInput = document.getElementById('todoEditPriority-' + id);
   var text = textInput.value.trim();
@@ -802,6 +859,7 @@ function saveTodoEdit(id) {
   if (t) {
     t.text = text;
     t.memo = memoInput.value.trim() || null;
+    t.category = categoryInput.value.trim() || null;
     t.dueDate = dateInput.value || null;
     t.priority = priorityInput.value;
   }
