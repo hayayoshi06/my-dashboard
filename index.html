@@ -81,6 +81,14 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
   background: none; border: none; color: #dc2626; font-size: 1.1em; cursor: pointer;
   padding: 4px 8px; line-height: 1; font-family: inherit;
 }
+.todo-memo-btn {
+  background: none; border: none; color: #71717a; font-size: 1em; cursor: pointer;
+  padding: 4px 8px; line-height: 1; font-family: inherit;
+}
+.todo-memo-text {
+  font-size: 0.82em; color: #52525b; background: #e4e4e7; border-radius: 6px;
+  padding: 8px 10px; margin-top: 6px; white-space: pre-wrap; word-break: break-all;
+}
 
 /* 日付カード */
 .date-big { font-size: 1.6em; font-weight: bold; color: #18181b; }
@@ -274,6 +282,9 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       <div class="card-title">✅ TODOリスト</div>
       <div class="todo-add-row">
         <input type="text" id="todoInput" placeholder="やることを入力…">
+      </div>
+      <div class="todo-add-row">
+        <input type="text" id="todoMemoInput" placeholder="メモ（任意）">
       </div>
       <div class="todo-add-row">
         <select id="todoPriorityInput">
@@ -608,6 +619,17 @@ function sortedTodos() {
 }
 
 var editingTodoId = null;
+// メモを開いて表示中のTODOのIDを保持する（複数同時に開ける）
+var expandedMemoIds = {};
+
+function toggleTodoMemo(id) {
+  if (expandedMemoIds[id]) {
+    delete expandedMemoIds[id];
+  } else {
+    expandedMemoIds[id] = true;
+  }
+  renderTodos();
+}
 
 var BASE_TITLE = document.title;
 
@@ -684,6 +706,9 @@ function renderTodos() {
           '<input type="text" id="todoEditText-' + t.id + '" value="' + escHtml(t.text) + '" onkeydown="handleEditKeydown(event,' + t.id + ')">' +
         '</div>' +
         '<div class="todo-add-row">' +
+          '<input type="text" id="todoEditMemo-' + t.id + '" placeholder="メモ（任意）" value="' + escHtml(t.memo || '') + '">' +
+        '</div>' +
+        '<div class="todo-add-row">' +
           '<select id="todoEditPriority-' + t.id + '">' +
             '<option value="high"' + (priorityKey === 'high' ? ' selected' : '') + '>高</option>' +
             '<option value="mid"' + (priorityKey === 'mid' ? ' selected' : '') + '>中</option>' +
@@ -702,12 +727,16 @@ function renderTodos() {
       dateHtml = '<div class="todo-date' + (info.cls ? ' ' + info.cls : '') + '">' + info.label + '</div>';
     }
     var priorityHtml = '<span class="todo-priority ' + priorityKey + '">' + PRIORITY_LABEL[priorityKey] + '</span>';
+    var memoBtnHtml = t.memo ? '<button class="todo-memo-btn" onclick="toggleTodoMemo(' + t.id + ')">📝</button>' : '';
+    var memoTextHtml = (t.memo && expandedMemoIds[t.id]) ? '<div class="todo-memo-text">' + escHtml(t.memo) + '</div>' : '';
     return '<div class="todo-item" data-id="' + t.id + '">' +
       '<input type="checkbox" onchange="completeTodo(' + t.id + ')">' +
       '<div class="todo-main">' +
         '<div class="todo-text">' + priorityHtml + escHtml(t.text) + '</div>' +
         dateHtml +
+        memoTextHtml +
       '</div>' +
+      memoBtnHtml +
       '<button class="todo-edit-btn" onclick="editTodo(' + t.id + ')">✎</button>' +
       '<button class="todo-del-btn" onclick="deleteTodo(' + t.id + ')">✕</button>' +
     '</div>';
@@ -716,14 +745,16 @@ function renderTodos() {
 
 function addTodo() {
   var input = document.getElementById('todoInput');
+  var memoInput = document.getElementById('todoMemoInput');
   var dateInput = document.getElementById('todoDateInput');
   var priorityInput = document.getElementById('todoPriorityInput');
   var text = input.value.trim();
   if (!text) return;
   var todos = loadTodos();
-  todos.push({ id: Date.now(), text: text, dueDate: dateInput.value || null, priority: priorityInput.value });
+  todos.push({ id: Date.now(), text: text, memo: memoInput.value.trim() || null, dueDate: dateInput.value || null, priority: priorityInput.value });
   saveTodos(todos);
   input.value = '';
+  memoInput.value = '';
   dateInput.value = '';
   renderTodos();
 }
@@ -753,6 +784,7 @@ function cancelTodoEdit() {
 
 function saveTodoEdit(id) {
   var textInput = document.getElementById('todoEditText-' + id);
+  var memoInput = document.getElementById('todoEditMemo-' + id);
   var dateInput = document.getElementById('todoEditDate-' + id);
   var priorityInput = document.getElementById('todoEditPriority-' + id);
   var text = textInput.value.trim();
@@ -761,6 +793,7 @@ function saveTodoEdit(id) {
   var t = todos.find(function(x) { return x.id === id; });
   if (t) {
     t.text = text;
+    t.memo = memoInput.value.trim() || null;
     t.dueDate = dateInput.value || null;
     t.priority = priorityInput.value;
   }
