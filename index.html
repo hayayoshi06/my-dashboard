@@ -307,8 +307,6 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
           <option value="プライベート">プライベート</option>
           <option value="仕事">仕事</option>
         </select>
-      </div>
-      <div class="todo-add-row">
         <select id="todoPriorityInput">
           <option value="high">高</option>
           <option value="mid" selected>中</option>
@@ -759,8 +757,6 @@ function renderTodoItemHtml(t) {
             '<option value="プライベート"' + (t.category === '仕事' ? '' : ' selected') + '>プライベート</option>' +
             '<option value="仕事"' + (t.category === '仕事' ? ' selected' : '') + '>仕事</option>' +
           '</select>' +
-        '</div>' +
-        '<div class="todo-add-row">' +
           '<select id="todoEditPriority-' + t.id + '">' +
             '<option value="high"' + (priorityKey === 'high' ? ' selected' : '') + '>高</option>' +
             '<option value="mid"' + (priorityKey === 'mid' ? ' selected' : '') + '>中</option>' +
