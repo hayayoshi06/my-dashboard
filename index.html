@@ -98,6 +98,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
   font-size: 0.82em; color: #52525b; background: #e4e4e7; border-radius: 6px;
   padding: 8px 10px; margin-top: 6px; white-space: pre-wrap; word-break: break-all;
 }
+.todo-text-completed { text-decoration: line-through; color: #a1a1aa; }
 
 /* 日付カード */
 .date-big { font-size: 1.6em; font-weight: bold; color: #18181b; }
@@ -107,6 +108,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 /* 天気カード */
 .weather-row { display: flex; align-items: center; gap: 16px; }
 .weather-temp { font-size: 2.4em; font-weight: bold; color: #3f3f46; }
+.weather-feels { font-size: 0.4em; font-weight: normal; color: #71717a; }
 .weather-desc { font-size: 0.95em; color: #3f3f46; }
 .weather-meta { font-size: 0.8em; color: #71717a; margin-top: 4px; }
 .weather-place { font-size: 0.85em; color: #3f3f46; font-weight: bold; margin-bottom: 8px; }
@@ -176,6 +178,18 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
   width: 100%; min-height: 120px; padding: 10px 12px; border: 1.5px solid #d4d4d8; border-radius: 8px;
   font-size: 0.9em; font-family: inherit; background: #f4f4f5; color: #18181b; resize: vertical;
 }
+.quick-memo-lines { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.quick-memo-line {
+  display: flex; align-items: center; gap: 8px; padding: 6px 10px;
+  background: #f4f4f5; border-radius: 8px; font-size: 0.82em;
+}
+.quick-memo-line-text { flex: 1; min-width: 0; word-break: break-all; color: #3f3f46; }
+.quick-memo-line-btn {
+  -webkit-appearance: none; appearance: none; flex: none; white-space: nowrap;
+  background: #ffffff; border: 1.5px solid #d4d4d8; border-radius: 8px;
+  padding: 5px 10px; font-size: 0.82em; color: #3f3f46; cursor: pointer; font-family: inherit;
+}
+.quick-memo-line-btn:active { background: #e4e4e7; }
 
 /* 改善アイデアカード */
 .idea-list { display: flex; flex-direction: column; gap: 10px; }
@@ -340,6 +354,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       <div class="card-sub">買い物リストやちょっとした思いつきを自由に書けるメモ欄です</div>
       <textarea id="quickMemoInput" class="quick-memo-textarea" placeholder="ここに自由にメモできます…" oninput="saveQuickMemo()"></textarea>
       <div class="status-msg" id="quickMemoStatus"></div>
+      <div id="quickMemoLines" class="quick-memo-lines"></div>
     </div>
 
     <!-- 改善アイデア -->
@@ -585,6 +600,7 @@ var quickMemoSyncTimer = null;
 function loadQuickMemo() {
   var el = document.getElementById('quickMemoInput');
   el.value = localStorage.getItem(QUICK_MEMO_KEY) || '';
+  renderQuickMemoLines();
 }
 
 function saveQuickMemo() {
@@ -598,6 +614,46 @@ function saveQuickMemo() {
   // 入力のたびにクラウドへ送ると負荷が高いので、入力が止まってからまとめて同期する
   clearTimeout(quickMemoSyncTimer);
   quickMemoSyncTimer = setTimeout(function() { pushSyncData(); }, 1500);
+
+  renderQuickMemoLines();
+}
+
+// メモを1行ずつ一覧表示し、ワンタップでTODOに変換できるようにする
+function renderQuickMemoLines() {
+  var el = document.getElementById('quickMemoInput');
+  var linesEl = document.getElementById('quickMemoLines');
+  var lines = el.value.split('\n').map(function(l) { return l.trim(); }).filter(function(l) { return l; });
+  if (lines.length === 0) { linesEl.innerHTML = ''; return; }
+  linesEl.innerHTML = lines.map(function(line, i) {
+    return '<div class="quick-memo-line">' +
+      '<span class="quick-memo-line-text">' + escHtml(line) + '</span>' +
+      '<button class="quick-memo-line-btn" onclick="convertMemoLineToTodo(' + i + ')">→TODO</button>' +
+    '</div>';
+  }).join('');
+}
+
+// linesIndex は空行を除いた行一覧（renderQuickMemoLinesの表示順）でのインデックス
+function convertMemoLineToTodo(linesIndex) {
+  var el = document.getElementById('quickMemoInput');
+  var rawLines = el.value.split('\n');
+  var nonEmptyCount = -1;
+  var targetRawIndex = -1;
+  for (var i = 0; i < rawLines.length; i++) {
+    if (rawLines[i].trim()) {
+      nonEmptyCount++;
+      if (nonEmptyCount === linesIndex) { targetRawIndex = i; break; }
+    }
+  }
+  if (targetRawIndex === -1) return;
+  var text = rawLines[targetRawIndex].trim();
+  rawLines.splice(targetRawIndex, 1);
+  el.value = rawLines.join('\n');
+  saveQuickMemo();
+
+  var todos = loadTodos();
+  todos.push({ id: Date.now(), text: text, memo: null, category: 'プライベート', dueDate: null, priority: 'mid' });
+  saveTodos(todos);
+  renderTodos();
 }
 
 function formatDueDate(dateStr) {
@@ -622,7 +678,7 @@ function priorityWeight(t) {
 }
 
 function sortedTodos() {
-  var todos = loadTodos();
+  var todos = loadTodos().filter(function(t) { return !t.completedAt; });
   var byPriority = function(a, b) { return priorityWeight(a) - priorityWeight(b); };
   var withDate = todos.filter(function(t) { return t.dueDate; })
     .sort(function(a, b) {
@@ -672,7 +728,7 @@ function renderTodayTimeline() {
   if (!bodyEl) return;
   var todayStr = todayDateStr();
   var todayTodos = loadTodos()
-    .filter(function(t) { return t.dueDate === todayStr; })
+    .filter(function(t) { return t.dueDate === todayStr && !t.completedAt; })
     .sort(function(a, b) { return priorityWeight(a) - priorityWeight(b); });
 
   var untimed = [];
@@ -710,35 +766,70 @@ function renderTodayTimeline() {
     '</div>';
 }
 
+var completedSectionCollapsed = true;
+
+function toggleCompletedSection() {
+  completedSectionCollapsed = !completedSectionCollapsed;
+  renderTodos();
+}
+
 function renderTodos() {
   var todos = sortedTodos();
   // 未完了タスク数をタブタイトルに反映する（完了したタスクは一覧から消えるため、残っている件数＝未完了数）
   document.title = todos.length > 0 ? '(' + todos.length + ') ' + BASE_TITLE : BASE_TITLE;
   renderTodayTimeline();
   var listEl = document.getElementById('todoList');
-  if (todos.length === 0) {
+  var completed = recentCompletedTodos();
+
+  if (todos.length === 0 && completed.length === 0) {
     listEl.innerHTML = '<div class="status-msg">タスクはありません</div>';
     return;
   }
 
-  // カテゴリごとにグループ分けする（sortedTodosの時点で期日の近い順になっているため、
-  // グループ分けしてもグループ内の並び順＝期日が近い順はそのまま維持される）
-  var groups = {};
-  TODO_CATEGORY_ORDER.forEach(function(c) { groups[c] = []; });
-  todos.forEach(function(t) { groups[todoCategoryGroup(t)].push(t); });
+  var activeHtml = '';
+  if (todos.length > 0) {
+    // カテゴリごとにグループ分けする（sortedTodosの時点で期日の近い順になっているため、
+    // グループ分けしてもグループ内の並び順＝期日が近い順はそのまま維持される）
+    var groups = {};
+    TODO_CATEGORY_ORDER.forEach(function(c) { groups[c] = []; });
+    todos.forEach(function(t) { groups[todoCategoryGroup(t)].push(t); });
 
-  listEl.innerHTML = TODO_CATEGORY_ORDER.map(function(groupName) {
-    var groupTodos = groups[groupName];
-    if (groupTodos.length === 0) return '';
-    var isCollapsed = !!collapsedCategoryGroups[groupName];
-    var arrow = isCollapsed ? '▶' : '▼';
-    var titleHtml = '<div class="todo-group-title" onclick="toggleCategoryGroup(\'' + groupName + '\')">' +
-      escHtml(groupName) + ' <span class="todo-group-arrow">' + arrow + '</span>' +
-      ' <span class="todo-group-count">' + groupTodos.length + '件</span>' +
+    activeHtml = TODO_CATEGORY_ORDER.map(function(groupName) {
+      var groupTodos = groups[groupName];
+      if (groupTodos.length === 0) return '';
+      var isCollapsed = !!collapsedCategoryGroups[groupName];
+      var arrow = isCollapsed ? '▶' : '▼';
+      var titleHtml = '<div class="todo-group-title" onclick="toggleCategoryGroup(\'' + groupName + '\')">' +
+        escHtml(groupName) + ' <span class="todo-group-arrow">' + arrow + '</span>' +
+        ' <span class="todo-group-count">' + groupTodos.length + '件</span>' +
+      '</div>';
+      if (isCollapsed) return titleHtml;
+      return titleHtml + groupTodos.map(renderTodoItemHtml).join('');
+    }).join('');
+  }
+
+  var completedHtml = '';
+  if (completed.length > 0) {
+    var cArrow = completedSectionCollapsed ? '▶' : '▼';
+    completedHtml = '<div class="todo-group-title" onclick="toggleCompletedSection()">' +
+      '最近完了 <span class="todo-group-arrow">' + cArrow + '</span>' +
+      ' <span class="todo-group-count">' + completed.length + '件</span>' +
     '</div>';
-    if (isCollapsed) return titleHtml;
-    return titleHtml + groupTodos.map(renderTodoItemHtml).join('');
-  }).join('');
+    if (!completedSectionCollapsed) completedHtml += completed.map(renderCompletedTodoItemHtml).join('');
+  }
+
+  listEl.innerHTML = activeHtml + completedHtml;
+}
+
+function renderCompletedTodoItemHtml(t) {
+  var categoryHtml = t.category ? '<span class="todo-category">' + escHtml(t.category) + '</span>' : '';
+  return '<div class="todo-item" data-id="' + t.id + '">' +
+    '<input type="checkbox" checked onchange="restoreTodo(' + t.id + ')">' +
+    '<div class="todo-main">' +
+      '<div class="todo-text todo-text-completed">' + categoryHtml + escHtml(t.text) + '</div>' +
+    '</div>' +
+    '<button class="todo-del-btn" onclick="deleteTodo(' + t.id + ')">✕</button>' +
+  '</div>';
 }
 
 function renderTodoItemHtml(t) {
@@ -814,17 +905,47 @@ function addTodo() {
   renderTodos();
 }
 
-// チェックを入れたら完了として一覧から消す
+// チェックを入れたら完了扱いにし、一覧からは消すがRECENT_COMPLETED_DAYS日間は「最近完了」として残す
 function completeTodo(id) {
   var el = document.querySelector('.todo-item[data-id="' + id + '"]');
   if (el) el.classList.add('removing');
-  setTimeout(function() { deleteTodo(id); }, 200);
+  setTimeout(function() {
+    var todos = loadTodos();
+    var t = todos.find(function(x) { return x.id === id; });
+    if (t) t.completedAt = Date.now();
+    saveTodos(todos);
+    renderTodos();
+  }, 200);
+}
+
+function restoreTodo(id) {
+  var todos = loadTodos();
+  var t = todos.find(function(x) { return x.id === id; });
+  if (t) delete t.completedAt;
+  saveTodos(todos);
+  renderTodos();
 }
 
 function deleteTodo(id) {
   var todos = loadTodos().filter(function(x) { return x.id !== id; });
   saveTodos(todos);
   renderTodos();
+}
+
+var RECENT_COMPLETED_DAYS = 3;
+
+function recentCompletedTodos() {
+  var cutoff = Date.now() - RECENT_COMPLETED_DAYS * 86400000;
+  return loadTodos().filter(function(t) { return t.completedAt && t.completedAt >= cutoff; })
+    .sort(function(a, b) { return b.completedAt - a.completedAt; });
+}
+
+// RECENT_COMPLETED_DAYS日より前に完了したタスクを完全に削除する（起動時に1回だけ実行）
+function purgeOldCompletedTodos() {
+  var cutoff = Date.now() - RECENT_COMPLETED_DAYS * 86400000;
+  var todos = loadTodos();
+  var kept = todos.filter(function(t) { return !t.completedAt || t.completedAt >= cutoff; });
+  if (kept.length !== todos.length) saveTodos(kept);
 }
 
 function editTodo(id) {
@@ -1016,7 +1137,7 @@ async function renderWeather(lat, lon, placeName) {
   try {
     var url = 'https://api.open-meteo.com/v1/forecast?latitude=' + lat +
       '&longitude=' + lon +
-      '&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m' +
+      '&current=temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m' +
       '&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto';
     var res = await fetch(url);
     var data = await res.json();
@@ -1027,7 +1148,7 @@ async function renderWeather(lat, lon, placeName) {
     var pop = data.daily.precipitation_probability_max ? data.daily.precipitation_probability_max[0] : null;
     bodyEl.innerHTML =
       '<div class="weather-row">' +
-        '<div class="weather-temp">' + Math.round(cur.temperature_2m) + '℃</div>' +
+        '<div class="weather-temp">' + Math.round(cur.temperature_2m) + '℃<span class="weather-feels">（体感' + Math.round(cur.apparent_temperature) + '℃）</span></div>' +
         '<div>' +
           '<div class="weather-desc">' + desc + (pop !== null ? ' ／ 降水確率 ' + pop + '%' : '') + '</div>' +
           '<div class="weather-meta">最高 ' + Math.round(maxT) + '℃ / 最低 ' + Math.round(minT) + '℃</div>' +
@@ -1795,6 +1916,7 @@ function escHtml(str) {
 }
 
 // ========== 初期化 ==========
+purgeOldCompletedTodos();
 renderTodos();
 loadQuickMemo();
 loadWeather();
