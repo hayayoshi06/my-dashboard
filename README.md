@@ -21,6 +21,7 @@ python3 -m http.server 4321
 - **今日のタイムライン**：Googleカレンダーの今日の予定と、今日期限のTODOを時系列で1つのカードにまとめて表示。時刻指定の予定が今後にあれば「次の予定まであと◯分」というカウントダウンを先頭に表示（1分ごとに自動更新、対象は当日中の予定のみ）
 - **クイックメモ**：買い物リストなど、構造化しないちょっとしたメモを自由に書ける欄。入力するたびに自動保存される。1行ずつ「→TODO」ボタンでワンタップでTODOリストに変換できる
 - **TODO・メモの端末間同期**：Googleに接続していれば、TODOリストとクイックメモを健康データ用スプレッドシート内の「AppSync」タブ経由で自動同期する。iPhone・Macなど複数端末から同じ内容を見られる（要Google連携、下記参照）
+- **音声アシスタント「アトラス」との連携**：Macで動く音声アシスタント（同じ親フォルダの `../atlas`）から、今日の予定・TODO・健康データを読み上げたり、TODOを追加・完了したりできる（要設定、下記参照）
 - **改善アイデア**：Claudeが毎日チェックし、アクティブなアイデアが5件未満なら不足分を考えて `ideas.json` に追記する仕組み
 
 ## ホーム画面に追加する（PWA）
@@ -73,10 +74,13 @@ function doPost(e) {
 
   try {
     var data = JSON.parse(e.postData.contents);
-    if (data.secret !== SECRET) {
+    // アトラスはトークンを atlasSecret で送る。このコードに更新する前の古いスクリプトでは
+    // 認証エラーになるので、アトラスの呼び出しが誤って健康データの行として書き込まれることがない
+    if ((data.action ? data.atlasSecret : data.secret) !== SECRET) {
       return ContentService.createTextOutput(JSON.stringify({ error: 'unauthorized' }))
         .setMimeType(ContentService.MimeType.JSON);
     }
+    if (data.action) return handleAtlas(data); // 音声アシスタント「アトラス」からの呼び出し（下記）
 
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(sheetName);
     if (!sheet) {
@@ -147,10 +151,125 @@ function doGet(e) {
 }
 ```
 
-4. 「デプロイ」→「新しいデプロイ」→種類「ウェブアプリ」を選択
+4. （音声アシスタント「アトラス」を使う場合のみ）同じスクリプトに、以下のアトラス用の関数も追加する。アトラスに今日の予定・TODO・健康データを渡し、アトラスからのTODOの追加・完了を受け付ける。詳しくは下記「音声アシスタント「アトラス」との連携」を参照
+
+```javascript
+// ========== 音声アシスタント「アトラス」用 ==========
+// アトラスはTODO本体（AppSyncタブ）を直接書き換えず、AtlasInboxタブに操作を1行ずつ積む。
+// ダッシュボードが開かれた時にその操作を本体へ反映し、受け箱を空にする
+var ATLAS_INBOX_SHEET = 'AtlasInbox';
+var ATLAS_TZ = 'Asia/Tokyo';
+
+function jsonOut(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
+}
+
+function handleAtlas(data) {
+  if (data.action === 'context') return jsonOut(atlasContext());
+
+  var op;
+  if (data.action === 'addTodo') {
+    var text = String(data.text || '').trim().slice(0, 200);
+    if (!text) return jsonOut({ error: 'empty text' });
+    op = { type: 'add', id: Date.now(), text: text, dueDate: data.dueDate || null };
+  } else if (data.action === 'completeTodo') {
+    op = { type: 'complete', todoId: Number(data.todoId), at: Date.now() };
+  } else {
+    return jsonOut({ error: 'unknown action' });
+  }
+
+  var lock = LockService.getScriptLock();
+  lock.waitLock(10000);
+  try {
+    var ss = SpreadsheetApp.getActiveSpreadsheet();
+    var inbox = ss.getSheetByName(ATLAS_INBOX_SHEET) || ss.insertSheet(ATLAS_INBOX_SHEET);
+    inbox.appendRow([JSON.stringify(op)]);
+  } finally {
+    lock.releaseLock();
+  }
+  return jsonOut({ status: 'ok', id: op.id });
+}
+
+// ダッシュボード（index.html）の applyAtlasOps と同じ処理。変更する場合は両方そろえる
+function applyAtlasOps(todos, ops) {
+  ops.forEach(function(op) {
+    if (op.type === 'add') {
+      if (todos.some(function(t) { return t.id === op.id; })) return;
+      todos.push({ id: op.id, text: op.text, memo: null, category: 'プライベート', dueDate: op.dueDate || null, priority: 'mid' });
+    } else if (op.type === 'complete') {
+      var t = todos.find(function(x) { return x.id === op.todoId; });
+      if (t && !t.completedAt) t.completedAt = op.at;
+    }
+  });
+  return todos;
+}
+
+// 受け箱にまだ残っている操作も反映した上で、今日の予定・未完了のTODO・最新の健康データを返す
+function atlasContext() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var now = new Date();
+
+  var todos = [];
+  var syncSheet = ss.getSheetByName('AppSync');
+  var raw = syncSheet && syncSheet.getRange('A1').getValue();
+  if (raw) todos = JSON.parse(raw).todos || [];
+  var inbox = ss.getSheetByName(ATLAS_INBOX_SHEET);
+  if (inbox && inbox.getLastRow() > 0) {
+    var ops = inbox.getRange(1, 1, inbox.getLastRow(), 1).getValues().map(function(r) {
+      try { return JSON.parse(r[0]); } catch (e) { return null; }
+    }).filter(Boolean);
+    todos = applyAtlasOps(todos, ops);
+  }
+  // 期限が近い順（期限なしは最後）、同じ期限なら優先度順。アトラスはこの順番で「1番、2番…」と読み上げる
+  var weight = { high: 0, mid: 1, low: 2 };
+  var active = todos.filter(function(t) { return !t.completedAt; }).sort(function(a, b) {
+    var da = a.dueDate || '9999-99-99', db = b.dueDate || '9999-99-99';
+    if (da !== db) return da < db ? -1 : 1;
+    return (weight[a.priority] || 1) - (weight[b.priority] || 1);
+  }).map(function(t) {
+    return { id: t.id, text: t.text, dueDate: t.dueDate, priority: t.priority, category: t.category };
+  });
+
+  // Googleカレンダーの画面で表示中（チェックが入っている）カレンダーの今日の予定
+  var events = [];
+  CalendarApp.getAllCalendars().forEach(function(cal) {
+    if (cal.isHidden() || !cal.isSelected()) return;
+    cal.getEventsForDay(now).forEach(function(ev) {
+      var allDay = ev.isAllDayEvent();
+      events.push({
+        title: ev.getTitle(),
+        allDay: allDay,
+        start: allDay ? null : Utilities.formatDate(ev.getStartTime(), ATLAS_TZ, 'HH:mm'),
+        end: allDay ? null : Utilities.formatDate(ev.getEndTime(), ATLAS_TZ, 'HH:mm')
+      });
+    });
+  });
+  events.sort(function(a, b) { return (a.start || '') < (b.start || '') ? -1 : 1; });
+
+  var health = null;
+  var healthSheet = ss.getSheetByName('HealthData');
+  if (healthSheet && healthSheet.getLastRow() > 1) {
+    var lastCol = healthSheet.getLastColumn();
+    var header = healthSheet.getRange(1, 1, 1, lastCol).getValues()[0];
+    var row = healthSheet.getRange(healthSheet.getLastRow(), 1, 1, lastCol).getValues()[0];
+    health = {};
+    header.forEach(function(name, i) {
+      var v = row[i];
+      health[name] = Object.prototype.toString.call(v) === '[object Date]'
+        ? Utilities.formatDate(v, ATLAS_TZ, 'yyyy-MM-dd') : v;
+    });
+  }
+
+  return { now: Utilities.formatDate(now, ATLAS_TZ, 'yyyy-MM-dd HH:mm'), todos: active, events: events, health: health };
+}
+```
+
+   アトラス用の関数を追加した場合は、デプロイの前にエディタ上部の関数選択で `atlasContext` を選んで「実行」を1回押し、カレンダーへのアクセスを許可してください（Webアプリから初めてカレンダーを読む時に許可画面は出せないため）。
+
+5. 「デプロイ」→「新しいデプロイ」→種類「ウェブアプリ」を選択
    - 「次のユーザーとして実行」：**自分**
-   - 「アクセスできるユーザー」：**全員**（ショートカットがGoogleログインなしで呼び出すために必要。書き込み（doPost）は共有トークンで保護されているので、トークンを知らない第三者は書き込めません。読み取り（doGet）はニュースのRSSを中継するだけなので非公開情報は含まれません）
-5. デプロイ後に表示される **ウェブアプリのURL** をコピーしておく（iPhone側の設定と、ダッシュボードの「⚙ 設定」→「ニュース取得用 Apps Script URL」の両方で、同じURLを使います）
+   - 「アクセスできるユーザー」：**全員**（ショートカットがGoogleログインなしで呼び出すために必要。doPost（健康データの書き込み・アトラス用の予定やTODOの読み書き）はすべて共有トークンで保護されているので、トークンを知らない第三者は読み書きできません。doGetはニュースのRSSを中継するだけなので非公開情報は含まれません）
+6. デプロイ後に表示される **ウェブアプリのURL** をコピーしておく（iPhone側の設定と、ダッシュボードの「⚙ 設定」→「ニュース取得用 Apps Script URL」の両方で、同じURLを使います）
 
 既に一度デプロイ済みの場合は、「デプロイ」→「デプロイを管理」→編集（鉛筆アイコン）→バージョンを「新バージョン」にして更新すれば、URLを変えずにコードだけ更新できます（iPhoneショートカット側のURL変更は不要です）。
 
@@ -184,6 +303,17 @@ function doGet(e) {
 5. このショートカットを「オートメーション」タブで「時刻」トリガーの個人用オートメーションとして登録し、「実行前に確認」をオフにして毎日自動実行されるようにする（例：毎晩23時）
 
 これで翌朝ダッシュボードを開くと、前日分の健康データが表示されます。
+
+## 音声アシスタント「アトラス」との連携
+
+アトラスはMacで動く音声アシスタントです（ダッシュボードとは別のPythonプログラム）。上記のApps Scriptにアトラス用の関数を追加すると、アトラスが次のことをできるようになります。
+
+- 今日の予定・未完了のTODO・最新の健康データを読み上げる、会話の前提にする
+- TODOを追加する、完了にする（ダッシュボードのTODOリストと同じもの）
+
+仕組み：アトラスはTODO本体（`AppSync` タブ）を直接書き換えず、`AtlasInbox` タブに「追加」「完了」の操作を1行ずつ積みます。ダッシュボードは開いた時・別のアプリから戻った時・開いている間は1分ごとに受け箱を確認し、操作をTODOリストに反映してから受け箱を空にします。ダッシュボードはTODOリストを丸ごと書き込む方式のため、アトラスが本体を直接書き換えると、その後のダッシュボードの書き込みで消えてしまうためです。
+
+設定手順はアトラス側のREADMEを参照してください（Apps ScriptのURLと、`YOUR_SECRET_HERE` に入れた合言葉をアトラスの `.env` に書きます）。
 
 ## ライセンス・注意事項
 

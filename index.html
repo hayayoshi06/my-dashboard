@@ -617,6 +617,7 @@ function saveQuickMemo() {
 
   // 入力のたびにクラウドへ送ると負荷が高いので、入力が止まってからまとめて同期する
   clearTimeout(quickMemoSyncTimer);
+  if (canSync()) syncDirty = true;
   quickMemoSyncTimer = setTimeout(function() { pushSyncData(); }, 1500);
 
   renderQuickMemoLines();
@@ -1799,12 +1800,21 @@ async function ensureSyncSheetExists(spreadsheetId) {
   }
 }
 
-// クラウド側のTODO・メモを読み込み、ローカルを上書きする（ログイン直後に1回呼ぶ）
+// ローカルの変更がまだクラウドへ書き込めていない間はtrue。この間にクラウドから読み込むと
+// 未送信の変更が消えてしまうため、読み込みより書き込みを優先する
+var syncDirty = false;
+
+// クラウド側のTODO・メモを読み込み、ローカルを上書きする（ログイン直後と、ページを再表示した時に呼ぶ）
 async function pullSyncData() {
   if (!canSync()) return;
+  if (editingTodoId !== null) return; // 編集中の入力欄が再描画で消えないようにする
   var s = loadSettings();
   setSyncStatus('同期を確認中…');
   try {
+    if (syncDirty) {
+      if (await pushSyncData()) await applyAtlasInbox();
+      return;
+    }
     await ensureSyncSheetExists(s.healthSheetId);
     var resp = await gapi.client.sheets.spreadsheets.values.get({
       spreadsheetId: s.healthSheetId,
@@ -1822,14 +1832,16 @@ async function pullSyncData() {
     renderTodos();
     loadQuickMemo();
     setSyncStatus('他の端末のデータと同期しました');
+    await applyAtlasInbox();
   } catch (e) {
     handleSyncError(e);
   }
 }
 
-// ローカルのTODO・メモをクラウドへ書き込む（変更のたびに呼ぶ）
+// ローカルのTODO・メモをクラウドへ書き込む（変更のたびに呼ぶ）。書き込めたらtrueを返す
 async function pushSyncData() {
-  if (!canSync()) return;
+  if (!canSync()) return false;
+  syncDirty = true;
   var s = loadSettings();
   try {
     await ensureSyncSheetExists(s.healthSheetId);
@@ -1844,11 +1856,80 @@ async function pushSyncData() {
       valueInputOption: 'RAW',
       resource: { values: [[payload]] }
     });
+    syncDirty = false;
     setSyncStatus('同期しました');
+    return true;
   } catch (e) {
     handleSyncError(e);
+    return false;
   }
 }
+
+// ========== 音声アシスタント「アトラス」からのTODO操作の受け箱 ==========
+// アトラスはApps Script経由でAtlasInboxタブに操作を1行ずつ積むだけで、TODO本体（AppSyncタブ）には書き込まない。
+// 本体を書くのはダッシュボードだけにすることで、ダッシュボードの丸ごと書き込みでアトラスの追加が消えるのを防ぐ
+var ATLAS_INBOX_SHEET = 'AtlasInbox';
+var atlasInboxBusy = false;
+
+// 操作を順に反映する。同じ操作を2回反映しても結果が変わらないようにしてある（受け箱を空にする前に失敗しても安全）。
+// Apps Script側の applyAtlasOps と同じ処理なので、変更する場合は両方そろえる
+function applyAtlasOps(todos, ops) {
+  ops.forEach(function(op) {
+    if (op.type === 'add') {
+      if (todos.some(function(t) { return t.id === op.id; })) return;
+      todos.push({ id: op.id, text: op.text, memo: null, category: 'プライベート', dueDate: op.dueDate || null, priority: 'mid' });
+    } else if (op.type === 'complete') {
+      var t = todos.find(function(x) { return x.id === op.todoId; });
+      if (t && !t.completedAt) t.completedAt = op.at;
+    }
+  });
+  return todos;
+}
+
+async function applyAtlasInbox() {
+  if (!canSync() || atlasInboxBusy) return;
+  atlasInboxBusy = true;
+  try {
+    var s = loadSettings();
+    var resp;
+    try {
+      resp = await gapi.client.sheets.spreadsheets.values.get({
+        spreadsheetId: s.healthSheetId,
+        range: ATLAS_INBOX_SHEET + '!A:A'
+      });
+    } catch (e) {
+      var code = (e && e.status) || (e && e.result && e.result.error && e.result.error.code);
+      if (code === 400) return; // 受け箱タブがまだ無い（アトラスを使っていない）
+      throw e;
+    }
+    var rows = resp.result.values || [];
+    var ops = rows.map(function(r) {
+      try { return JSON.parse(r[0]); } catch (e) { return null; }
+    }).filter(Boolean);
+    if (!ops.length) return;
+    saveTodosLocalOnly(applyAtlasOps(loadTodos(), ops));
+    renderTodos();
+    // 本体に書き込めてから受け箱を空にする。読み込んだ行より後にアトラスが追記した行は消さない
+    if (!(await pushSyncData())) return;
+    await gapi.client.sheets.spreadsheets.values.clear({
+      spreadsheetId: s.healthSheetId,
+      range: ATLAS_INBOX_SHEET + '!A1:A' + rows.length
+    });
+  } finally {
+    atlasInboxBusy = false;
+  }
+}
+
+// アプリやタブに戻ってきた時は、他の端末やアトラスの変更を取り込む
+document.addEventListener('visibilitychange', function() {
+  if (document.visibilityState === 'visible') pullSyncData();
+});
+
+// 開いている間も、アトラスが追加したTODOが1分以内に表示されるようにする
+setInterval(function() {
+  if (document.visibilityState !== 'visible' || editingTodoId !== null) return;
+  applyAtlasInbox().catch(handleSyncError);
+}, 60000);
 
 // 日付文字列（例：2026-10-22）を「10/22」の短い表示に変換する
 function formatShortDate(dateStr) {
