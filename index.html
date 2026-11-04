@@ -2038,9 +2038,24 @@ setInterval(function() {
   loadAiNews();
 }, 30 * 60 * 1000);
 
-// PWA：ホーム画面に追加して起動した際に、外枠の読み込みを速く・安定させる
+// PWA：ホーム画面に追加して起動した際に、外枠の読み込みを速く・安定させる。
+// ただしローカルの確認用サーバー（localhost）では使わない。サーバーが止まっていると、
+// 保存済みの古いページがエラーにならずに表示され、古い版だと気づけないため
+var IS_LOCAL_DEV = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
+    if (IS_LOCAL_DEV) {
+      // 以前登録されたものと保存済みのページも消す
+      navigator.serviceWorker.getRegistrations().then(function(regs) {
+        regs.forEach(function(reg) { reg.unregister(); });
+      }).catch(function() {});
+      if (window.caches) {
+        caches.keys().then(function(keys) {
+          keys.forEach(function(k) { caches.delete(k); });
+        }).catch(function() {});
+      }
+      return;
+    }
     navigator.serviceWorker.register('service-worker.js').catch(function() {});
   });
 }
