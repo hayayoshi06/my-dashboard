@@ -714,7 +714,9 @@ function toggleCategoryGroup(groupName) {
   renderTodos();
 }
 
-var BASE_TITLE = document.title;
+// ローカルの確認用サーバー（localhost）で開いているときは、GitHub Pages版と見分けられるようタブ名に印を付ける
+var IS_LOCAL_DEV = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+if (IS_LOCAL_DEV) document.title = '【確認用】' + document.title;
 
 // 今日の日付をYYYY-MM-DD形式で返す（TODOのdueDateと比較するため）
 function todayDateStr() {
@@ -802,8 +804,6 @@ function toggleCompletedSection() {
 
 function renderTodos() {
   var todos = sortedTodos();
-  // 未完了タスク数をタブタイトルに反映する（完了したタスクは一覧から消えるため、残っている件数＝未完了数）
-  document.title = todos.length > 0 ? '(' + todos.length + ') ' + BASE_TITLE : BASE_TITLE;
   renderTodayTimeline();
   var listEl = document.getElementById('todoList');
   var completed = recentCompletedTodos();
@@ -2041,7 +2041,6 @@ setInterval(function() {
 // PWA：ホーム画面に追加して起動した際に、外枠の読み込みを速く・安定させる。
 // ただしローカルの確認用サーバー（localhost）では使わない。サーバーが止まっていると、
 // 保存済みの古いページがエラーにならずに表示され、古い版だと気づけないため
-var IS_LOCAL_DEV = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     if (IS_LOCAL_DEV) {
