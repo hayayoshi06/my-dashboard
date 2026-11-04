@@ -111,7 +111,8 @@
     "date": "2026-11-04",
     "title": "アクセシビリティ属性（aria-label・aria-live）を追加する",
     "description": "現在index.html内にaria属性がなく、アイコンのみのボタンやチェックボックス、天気・ニュースの更新状態がスクリーンリーダーに伝わらない。主要な操作ボタンにaria-labelを付け、エラーメッセージや再取得結果の表示領域にaria-live=\"polite\"を設定し、視覚に頼らなくても内容が伝わるようにする。",
-    "done": false
+    "done": true,
+    "completedDate": "2026-11-04"
   },
   {
     "date": "2026-11-04",
@@ -129,12 +130,14 @@
     "date": "2026-11-04",
     "title": "Service Workerのキャッシュ更新を自動化する",
     "description": "現在はindex.htmlの内容が変わるたびにCACHE_NAMEのバージョン番号を手動で書き換える必要がある。ファイル内容から自動でキャッシュ名を生成する仕組みにし、更新忘れによる古いキャッシュの表示を防ぐ。",
-    "done": false
+    "done": true,
+    "completedDate": "2026-11-04"
   },
   {
     "date": "2026-11-04",
     "title": "改善アイデアカードで完了済みを折りたたみ表示する",
     "description": "現在はdoneがtrueのアイデアは一覧から完全に見えなくなる。TODOの「最近完了」と同様に、完了済みの改善アイデアも折りたたみ表示で振り返れるようにし、これまでの改善の積み重ねを確認しやすくする。",
-    "done": false
+    "done": true,
+    "completedDate": "2026-11-04"
   }
 ]

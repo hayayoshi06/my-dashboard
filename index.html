@@ -205,6 +205,8 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
   font-size: 0.78em; margin-right: 8px; flex-shrink: 0;
 }
 .idea-desc { font-size: 0.85em; color: #71717a; line-height: 1.6; }
+.idea-item-done { border-left-color: #a1a1aa; opacity: 0.75; }
+.idea-item-done .idea-title { text-decoration: line-through; color: #71717a; }
 .btn {
   -webkit-appearance: none; appearance: none; border: none; border-radius: 10px;
   padding: 11px 16px; font-size: 0.9em; cursor: pointer; font-weight: bold;
@@ -283,14 +285,14 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       <div class="weather-clickable" id="weatherClickArea" onclick="openWeeklyForecast()">
         <div class="card-title">☀️ 天気</div>
         <div class="weather-place" id="weatherPlace">現在地を取得中…</div>
-        <div id="weatherBody"><div class="status-msg">読み込み中…</div></div>
+        <div id="weatherBody" aria-live="polite"><div class="status-msg">読み込み中…</div></div>
         <div class="weather-tap-hint" id="weatherTapHint" style="display:none;">タップで週間予報を表示</div>
       </div>
     </div>
 
     <div class="card">
       <div class="card-title">🗓 今日の予定（Googleカレンダー）</div>
-      <div id="calendarBody">
+      <div id="calendarBody" aria-live="polite">
         <div class="status-msg">設定からGoogleカレンダーとの連携を行ってください</div>
         <button class="btn btn-primary" id="calConnectBtn" style="margin-top:8px;" onclick="connectGoogle()">Googleカレンダーに接続</button>
       </div>
@@ -301,7 +303,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
   <div class="card">
     <div class="card-title">📋 今日のタイムライン</div>
     <div class="card-sub">予定と今日期限のタスクをまとめて表示します</div>
-    <div id="todayTimelineBody"><div class="status-msg">読み込み中…</div></div>
+    <div id="todayTimelineBody" aria-live="polite"><div class="status-msg">読み込み中…</div></div>
   </div>
 
   <div class="cards-flow">
@@ -328,28 +330,28 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
         <button class="btn btn-primary" onclick="addTodo()">追加</button>
       </div>
       <div class="todo-list" id="todoList"></div>
-      <div class="status-msg" id="syncStatus"></div>
+      <div class="status-msg" id="syncStatus" aria-live="polite"></div>
     </div>
 
     <!-- 健康データ -->
     <div class="card">
       <div class="card-title">🩺 健康データ</div>
       <div class="card-sub">iPhoneショートカットで自動送信されたヘルスケアデータ</div>
-      <div id="healthBody"><div class="status-msg">設定からスプレッドシートIDを登録してください</div></div>
+      <div id="healthBody" aria-live="polite"><div class="status-msg">設定からスプレッドシートIDを登録してください</div></div>
     </div>
 
     <!-- 世界情勢 -->
     <div class="card">
       <div class="card-title">🌍 世界情勢（ニュース見出し）</div>
       <div class="card-sub">Google ニュース（国際）</div>
-      <div id="worldNewsBody"><div class="status-msg">読み込み中…</div></div>
+      <div id="worldNewsBody" aria-live="polite"><div class="status-msg">読み込み中…</div></div>
     </div>
 
     <!-- AI情報 -->
     <div class="card">
       <div class="card-title">🤖 AI関連ニュース</div>
       <div class="card-sub">Google ニュース（「AI」検索）</div>
-      <div id="aiNewsBody"><div class="status-msg">読み込み中…</div></div>
+      <div id="aiNewsBody" aria-live="polite"><div class="status-msg">読み込み中…</div></div>
     </div>
 
     <!-- クイックメモ -->
@@ -357,7 +359,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       <div class="card-title">📝 クイックメモ</div>
       <div class="card-sub">買い物リストやちょっとした思いつきを自由に書けるメモ欄です</div>
       <textarea id="quickMemoInput" class="quick-memo-textarea" placeholder="ここに自由にメモできます…" oninput="saveQuickMemo()"></textarea>
-      <div class="status-msg" id="quickMemoStatus"></div>
+      <div class="status-msg" id="quickMemoStatus" aria-live="polite"></div>
       <div id="quickMemoLines" class="quick-memo-lines"></div>
     </div>
 
@@ -365,7 +367,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
     <div class="card">
       <div class="card-title">💡 改善アイデア</div>
       <div class="card-sub">Claudeが週次でこのダッシュボードを見直して提案します</div>
-      <div id="ideasBody"><div class="status-msg">読み込み中…</div></div>
+      <div id="ideasBody" aria-live="polite"><div class="status-msg">読み込み中…</div></div>
     </div>
   </div>
 
@@ -385,7 +387,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
     </div>
     <button class="btn btn-secondary" onclick="searchCity()">地域を検索して保存</button>
     <button class="btn btn-secondary" onclick="clearManualLocation()">手動設定を解除（現在地に戻す）</button>
-    <div class="status-msg" id="citySearchStatus"></div>
+    <div class="status-msg" id="citySearchStatus" aria-live="polite"></div>
 
     <div class="field-group" style="margin-top:16px;">
       <label>プリセット地点</label>
@@ -421,14 +423,14 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       </div>
     </div>
     <button class="btn btn-secondary" onclick="saveGoogleSettings()">Google設定を保存</button>
-    <div class="status-msg" id="googleSettingsStatus"></div>
+    <div class="status-msg" id="googleSettingsStatus" aria-live="polite"></div>
 
     <div class="field-group" style="margin-top:16px;">
       <label>表示するカレンダー</label>
       <div class="calendar-list" id="calendarSelectList"><div class="status-msg">Googleに接続すると一覧を取得できます</div></div>
       <button class="btn btn-secondary" style="margin-top:8px;" onclick="loadCalendarList()">カレンダー一覧を取得</button>
       <button class="btn btn-secondary" style="margin-top:8px;" onclick="saveCalendarSelection()">選択を保存</button>
-      <div class="status-msg" id="calendarSelectStatus"></div>
+      <div class="status-msg" id="calendarSelectStatus" aria-live="polite"></div>
       <div class="field-hint">
         何も選択しない場合はメインカレンダー（primary）のみ表示します。複数選択すると、まとめて今日の予定を表示します。
       </div>
@@ -447,7 +449,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       </div>
     </div>
     <button class="btn btn-secondary" onclick="saveHealthSheetSettings()">健康データ設定を保存</button>
-    <div class="status-msg" id="healthSheetStatus"></div>
+    <div class="status-msg" id="healthSheetStatus" aria-live="polite"></div>
 
     <hr style="margin:18px 0; border:none; border-top:1px solid #e4e4e7;">
 
@@ -460,7 +462,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       </div>
     </div>
     <button class="btn btn-secondary" onclick="saveNewsProxySettings()">ニュース取得設定を保存</button>
-    <div class="status-msg" id="newsProxyStatus"></div>
+    <div class="status-msg" id="newsProxyStatus" aria-live="polite"></div>
 
     <hr style="margin:18px 0; border:none; border-top:1px solid #e4e4e7;">
 
@@ -472,7 +474,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       </div>
     </div>
     <button class="btn btn-secondary" onclick="saveMuteKeywords()">ミュート設定を保存</button>
-    <div class="status-msg" id="muteKeywordsStatus"></div>
+    <div class="status-msg" id="muteKeywordsStatus" aria-live="polite"></div>
 
     <hr style="margin:18px 0; border:none; border-top:1px solid #e4e4e7;">
 
@@ -485,7 +487,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
     <button class="btn btn-secondary" onclick="exportBackup()">書き出す（ダウンロード）</button>
     <button class="btn btn-secondary" onclick="document.getElementById('backupFileInput').click()">読み込む（復元）</button>
     <input type="file" id="backupFileInput" accept="application/json" style="display:none" onchange="importBackup(event)">
-    <div class="status-msg" id="backupStatus"></div>
+    <div class="status-msg" id="backupStatus" aria-live="polite"></div>
 
     <div class="settings-actions">
       <button class="btn btn-secondary" onclick="closeSettings()">閉じる</button>
@@ -632,7 +634,7 @@ function renderQuickMemoLines() {
   linesEl.innerHTML = lines.map(function(line, i) {
     return '<div class="quick-memo-line">' +
       '<span class="quick-memo-line-text">' + escHtml(line) + '</span>' +
-      '<button class="quick-memo-line-btn" onclick="convertMemoLineToTodo(' + i + ')">→TODO</button>' +
+      '<button class="quick-memo-line-btn" aria-label="「' + escHtml(line) + '」をTODOに変換" onclick="convertMemoLineToTodo(' + i + ')">→TODO</button>' +
     '</div>';
   }).join('');
 }
@@ -851,11 +853,11 @@ function renderTodos() {
 function renderCompletedTodoItemHtml(t) {
   var categoryHtml = t.category ? '<span class="todo-category">' + escHtml(t.category) + '</span>' : '';
   return '<div class="todo-item" data-id="' + t.id + '">' +
-    '<input type="checkbox" checked onchange="restoreTodo(' + t.id + ')">' +
+    '<input type="checkbox" checked aria-label="' + escHtml(t.text) + 'を未完了に戻す" onchange="restoreTodo(' + t.id + ')">' +
     '<div class="todo-main">' +
       '<div class="todo-text todo-text-completed">' + categoryHtml + escHtml(t.text) + '</div>' +
     '</div>' +
-    '<button class="todo-del-btn" onclick="deleteTodo(' + t.id + ')">✕</button>' +
+    '<button class="todo-del-btn" aria-label="' + escHtml(t.text) + 'を削除" onclick="deleteTodo(' + t.id + ')">✕</button>' +
   '</div>';
 }
 
@@ -901,14 +903,14 @@ function renderTodoItemHtml(t) {
     var categoryHtml = t.category ? '<span class="todo-category">' + escHtml(t.category) + '</span>' : '';
     var memoTextHtml = t.memo ? '<div class="todo-memo-text">' + escHtml(t.memo) + '</div>' : '';
     return '<div class="todo-item' + urgencyCls + memoCls + '" data-id="' + t.id + '">' +
-      '<input type="checkbox" onchange="completeTodo(' + t.id + ')">' +
+      '<input type="checkbox" aria-label="' + escHtml(t.text) + 'を完了にする" onchange="completeTodo(' + t.id + ')">' +
       '<div class="todo-main">' +
         '<div class="todo-text">' + priorityHtml + categoryHtml + escHtml(t.text) + '</div>' +
         dateHtml +
         memoTextHtml +
       '</div>' +
-      '<button class="todo-edit-btn" onclick="editTodo(' + t.id + ')">✎</button>' +
-      '<button class="todo-del-btn" onclick="deleteTodo(' + t.id + ')">✕</button>' +
+      '<button class="todo-edit-btn" aria-label="' + escHtml(t.text) + 'を編集" onclick="editTodo(' + t.id + ')">✎</button>' +
+      '<button class="todo-del-btn" aria-label="' + escHtml(t.text) + 'を削除" onclick="deleteTodo(' + t.id + ')">✕</button>' +
     '</div>';
 }
 
@@ -1091,7 +1093,7 @@ function renderPresetList() {
   el.innerHTML = presets.map(function(p, i) {
     return '<div class="preset-item">' +
       '<button class="preset-apply-btn" onclick="applyPreset(' + i + ')">📍 ' + escHtml(p.name) + '</button>' +
-      '<button class="preset-del-btn" onclick="deletePreset(' + i + ')">✕</button>' +
+      '<button class="preset-del-btn" aria-label="プリセット「' + escHtml(p.name) + '」を削除" onclick="deletePreset(' + i + ')">✕</button>' +
     '</div>';
   }).join('');
 }
@@ -1986,28 +1988,70 @@ function closeHealthDetail() {
 }
 
 // ========== 改善アイデア（ideas.jsonを読み込んで表示） ==========
+// 完了済みアイデアを「完了済み」として折りたたみ表示する際、何日分残すか
+// （done:trueにする際にcompletedDate（YYYY-MM-DD）を付けた項目のみ対象）
+var IDEA_RECENT_COMPLETED_DAYS = 7;
+var ideasCompletedSectionCollapsed = true;
+
+function toggleIdeasCompletedSection() {
+  ideasCompletedSectionCollapsed = !ideasCompletedSectionCollapsed;
+  loadIdeas();
+}
+
 async function loadIdeas() {
   var bodyEl = document.getElementById('ideasBody');
   try {
     var res = await fetch('ideas.json?t=' + Date.now());
     if (!res.ok) throw new Error('ideas.json が見つかりません');
     var ideas = await res.json();
+
     var active = (ideas || []).filter(function(idea) { return !idea.done; });
-    if (active.length === 0) {
+    var sortedActive = active.slice()
+      .sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; })
+      .slice(0, 5);
+
+    var now = new Date();
+    var cutoff = new Date(now.getFullYear(), now.getMonth(), now.getDate() - IDEA_RECENT_COMPLETED_DAYS);
+    var cutoffStr = cutoff.getFullYear() + '-' + String(cutoff.getMonth() + 1).padStart(2, '0') + '-' + String(cutoff.getDate()).padStart(2, '0');
+    var completed = (ideas || []).filter(function(idea) {
+      return idea.done && idea.completedDate && idea.completedDate >= cutoffStr;
+    }).sort(function(a, b) { return a.completedDate < b.completedDate ? 1 : a.completedDate > b.completedDate ? -1 : 0; });
+
+    if (sortedActive.length === 0 && completed.length === 0) {
       bodyEl.innerHTML = '<div class="status-msg">対応中の改善アイデアはありません</div>';
       return;
     }
-    var sorted = active.slice()
-      .sort(function(a, b) { return a.date < b.date ? 1 : a.date > b.date ? -1 : 0; })
-      .slice(0, 5);
-    bodyEl.innerHTML = '<div class="idea-list">' +
-      sorted.map(function(idea, i) {
-        return '<div class="idea-item">' +
-          '<div class="idea-title"><span class="idea-num">' + (i + 1) + '</span>' + escHtml(idea.title) + '</div>' +
-          '<div class="idea-desc">' + escHtml(idea.description) + '</div>' +
-        '</div>';
-      }).join('') +
+
+    var activeHtml = sortedActive.length === 0 ? '<div class="status-msg">対応中の改善アイデアはありません</div>' :
+      '<div class="idea-list">' +
+        sortedActive.map(function(idea, i) {
+          return '<div class="idea-item">' +
+            '<div class="idea-title"><span class="idea-num">' + (i + 1) + '</span>' + escHtml(idea.title) + '</div>' +
+            '<div class="idea-desc">' + escHtml(idea.description) + '</div>' +
+          '</div>';
+        }).join('') +
       '</div>';
+
+    var completedHtml = '';
+    if (completed.length > 0) {
+      var arrow = ideasCompletedSectionCollapsed ? '▶' : '▼';
+      completedHtml = '<div class="todo-group-title" onclick="toggleIdeasCompletedSection()">' +
+        '完了済み（直近' + IDEA_RECENT_COMPLETED_DAYS + '日） <span class="todo-group-arrow">' + arrow + '</span>' +
+        ' <span class="todo-group-count">' + completed.length + '件</span>' +
+      '</div>';
+      if (!ideasCompletedSectionCollapsed) {
+        completedHtml += '<div class="idea-list">' +
+          completed.map(function(idea) {
+            return '<div class="idea-item idea-item-done">' +
+              '<div class="idea-title">' + escHtml(idea.title) + '</div>' +
+              '<div class="idea-desc">' + escHtml(idea.description) + '</div>' +
+            '</div>';
+          }).join('') +
+        '</div>';
+      }
+    }
+
+    bodyEl.innerHTML = activeHtml + completedHtml;
   } catch (e) {
     bodyEl.innerHTML = '<div class="status-msg">改善アイデアを読み込めませんでした</div>';
   }
