@@ -115,6 +115,7 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
 .weather-clickable { cursor: pointer; touch-action: manipulation; border-radius: 10px; margin: -6px; padding: 6px; }
 .weather-clickable:active { background: #f4f4f5; }
 .weather-tap-hint { font-size: 0.7em; color: #a1a1aa; margin-top: 6px; }
+.weather-advice { font-size: 0.82em; color: #92400e; background: #fef3c7; border-radius: 8px; padding: 6px 10px; margin-top: 10px; }
 
 /* 週間天気予報（モーダル） */
 .weekly-forecast { display: flex; gap: 6px; overflow-x: auto; padding: 4px 2px; }
@@ -152,6 +153,17 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
   font-size: 0.85em; font-weight: bold; color: #b45309; background: #fef3c7;
   border-radius: 8px; padding: 8px 10px; margin-bottom: 8px;
 }
+
+/* カウントダウンカード */
+.countdown-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.countdown-item { display: flex; align-items: center; gap: 10px; padding: 8px 10px; background: #f4f4f5; border-radius: 8px; }
+.countdown-main { flex: 1; min-width: 0; }
+.countdown-title { font-size: 0.9em; color: #18181b; word-break: break-all; }
+.countdown-date { font-size: 0.75em; color: #71717a; margin-top: 2px; }
+.countdown-days { font-size: 0.85em; font-weight: bold; color: #3f3f46; white-space: nowrap; }
+.countdown-days.soon { color: #b45309; }
+.countdown-days.today { color: #dc2626; }
+.countdown-days.past { color: #a1a1aa; font-weight: normal; }
 
 /* 健康データカード */
 .health-date { font-size: 0.8em; color: #71717a; margin-bottom: 10px; }
@@ -331,6 +343,18 @@ body { font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP'
       </div>
       <div class="todo-list" id="todoList"></div>
       <div class="status-msg" id="syncStatus" aria-live="polite"></div>
+    </div>
+
+    <!-- カウントダウン -->
+    <div class="card">
+      <div class="card-title">⏳ カウントダウン</div>
+      <div class="card-sub">試験日・旅行・締め切りなど、目標日までの残り日数を表示します</div>
+      <div class="todo-add-row">
+        <input type="text" id="countdownTitleInput" placeholder="例：IT試験">
+        <input type="date" id="countdownDateInput">
+        <button class="btn btn-primary" onclick="addCountdown()">追加</button>
+      </div>
+      <div class="countdown-list" id="countdownList" aria-live="polite"></div>
     </div>
 
     <!-- 健康データ -->
@@ -596,6 +620,75 @@ function saveTodosLocalOnly(todos) {
 function saveTodos(todos) {
   saveTodosLocalOnly(todos);
   pushSyncData();
+}
+
+// ========== カウントダウン（試験日・旅行など任意の目標日までの残り日数） ==========
+var COUNTDOWN_KEY = 'dashboardCountdowns';
+
+function loadCountdowns() {
+  try {
+    return JSON.parse(localStorage.getItem(COUNTDOWN_KEY)) || [];
+  } catch (e) {
+    return [];
+  }
+}
+function saveCountdownsLocalOnly(items) {
+  localStorage.setItem(COUNTDOWN_KEY, JSON.stringify(items));
+}
+function saveCountdowns(items) {
+  saveCountdownsLocalOnly(items);
+  pushSyncData();
+}
+
+function countdownDaysInfo(targetDate) {
+  var d = new Date(targetDate + 'T00:00:00');
+  var today = new Date();
+  today.setHours(0, 0, 0, 0);
+  var diffDays = Math.round((d - today) / 86400000);
+  if (diffDays < 0) return { label: '終了', cls: 'past' };
+  if (diffDays === 0) return { label: '今日です！', cls: 'today' };
+  return { label: 'あと' + diffDays + '日', cls: diffDays <= 7 ? 'soon' : '' };
+}
+
+function renderCountdowns() {
+  var listEl = document.getElementById('countdownList');
+  if (!listEl) return;
+  var items = loadCountdowns().slice().sort(function(a, b) { return a.targetDate < b.targetDate ? -1 : 1; });
+  if (items.length === 0) {
+    listEl.innerHTML = '<div class="status-msg">カウントダウンはまだありません</div>';
+    return;
+  }
+  listEl.innerHTML = items.map(function(c) {
+    var info = countdownDaysInfo(c.targetDate);
+    return '<div class="countdown-item">' +
+      '<div class="countdown-main">' +
+        '<div class="countdown-title">' + escHtml(c.title) + '</div>' +
+        '<div class="countdown-date">' + c.targetDate + '</div>' +
+      '</div>' +
+      '<div class="countdown-days ' + info.cls + '">' + info.label + '</div>' +
+      '<button class="todo-del-btn" aria-label="' + escHtml(c.title) + 'を削除" onclick="deleteCountdown(' + c.id + ')">✕</button>' +
+    '</div>';
+  }).join('');
+}
+
+function addCountdown() {
+  var titleInput = document.getElementById('countdownTitleInput');
+  var dateInput = document.getElementById('countdownDateInput');
+  var title = titleInput.value.trim();
+  var date = dateInput.value;
+  if (!title || !date) return;
+  var items = loadCountdowns();
+  items.push({ id: Date.now(), title: title, targetDate: date });
+  saveCountdowns(items);
+  titleInput.value = '';
+  dateInput.value = '';
+  renderCountdowns();
+}
+
+function deleteCountdown(id) {
+  var items = loadCountdowns().filter(function(x) { return x.id !== id; });
+  saveCountdowns(items);
+  renderCountdowns();
 }
 
 // ========== クイックメモ ==========
@@ -1155,6 +1248,19 @@ async function reverseGeocode(lat, lon) {
 
 var weeklyForecastCache = null;
 
+// 降水確率・最高気温から、傘や服装についての一言アドバイスを返す
+function weatherAdviceLines(pop, maxT) {
+  var lines = [];
+  if (pop !== null && pop >= 50) lines.push('☂️ 傘を持って行きましょう');
+  if (maxT !== null) {
+    if (maxT < 5) lines.push('🧥 厳重な防寒を');
+    else if (maxT < 12) lines.push('🧥 厚手の上着が必要です');
+    else if (maxT < 18) lines.push('🧥 上着があると安心です');
+    else if (maxT >= 30) lines.push('🥵 熱中症に注意してください');
+  }
+  return lines;
+}
+
 async function renderWeather(lat, lon, placeName) {
   var placeEl = document.getElementById('weatherPlace');
   var bodyEl = document.getElementById('weatherBody');
@@ -1175,6 +1281,10 @@ async function renderWeather(lat, lon, placeName) {
     var maxT = data.daily.temperature_2m_max[0];
     var minT = data.daily.temperature_2m_min[0];
     var pop = data.daily.precipitation_probability_max ? data.daily.precipitation_probability_max[0] : null;
+    var adviceLines = weatherAdviceLines(pop, maxT);
+    var adviceHtml = adviceLines.length > 0
+      ? '<div class="weather-advice">' + adviceLines.map(escHtml).join('　') + '</div>'
+      : '';
     bodyEl.innerHTML =
       '<div class="weather-row">' +
         '<div class="weather-temp">' + Math.round(cur.temperature_2m) + '℃<span class="weather-feels">（体感' + Math.round(cur.apparent_temperature) + '℃）</span></div>' +
@@ -1183,7 +1293,8 @@ async function renderWeather(lat, lon, placeName) {
           '<div class="weather-meta">最高 ' + Math.round(maxT) + '℃ / 最低 ' + Math.round(minT) + '℃</div>' +
           '<div class="weather-meta">湿度 ' + cur.relative_humidity_2m + '% ／ 風速 ' + cur.wind_speed_10m + 'm/s</div>' +
         '</div>' +
-      '</div>';
+      '</div>' +
+      adviceHtml;
     weeklyForecastCache = data.daily;
     hintEl.style.display = '';
   } catch (e) {
@@ -1456,7 +1567,8 @@ function exportBackup() {
     exportedAt: new Date().toISOString(),
     dashboardSettings: loadSettings(),
     dashboardTodos: loadTodos(),
-    dashboardQuickMemo: localStorage.getItem(QUICK_MEMO_KEY) || ''
+    dashboardQuickMemo: localStorage.getItem(QUICK_MEMO_KEY) || '',
+    dashboardCountdowns: loadCountdowns()
   };
   var blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   var url = URL.createObjectURL(blob);
@@ -1494,6 +1606,7 @@ function importBackup(event) {
       localStorage.setItem(STORE_KEY, JSON.stringify(payload.dashboardSettings));
       localStorage.setItem(TODO_KEY, JSON.stringify(payload.dashboardTodos || []));
       localStorage.setItem(QUICK_MEMO_KEY, payload.dashboardQuickMemo || '');
+      localStorage.setItem(COUNTDOWN_KEY, JSON.stringify(payload.dashboardCountdowns || []));
       statusEl.textContent = '復元しました。ページを再読み込みします…';
       statusEl.className = 'status-msg';
       setTimeout(function() { location.reload(); }, 800);
@@ -1831,8 +1944,10 @@ async function pullSyncData() {
     var data = JSON.parse(raw);
     saveTodosLocalOnly(data.todos || []);
     localStorage.setItem(QUICK_MEMO_KEY, data.quickMemo || '');
+    saveCountdownsLocalOnly(data.countdowns || []);
     renderTodos();
     loadQuickMemo();
+    renderCountdowns();
     setSyncStatus('他の端末のデータと同期しました');
     await applyAtlasInbox();
   } catch (e) {
@@ -1850,6 +1965,7 @@ async function pushSyncData() {
     var payload = JSON.stringify({
       todos: loadTodos(),
       quickMemo: localStorage.getItem(QUICK_MEMO_KEY) || '',
+      countdowns: loadCountdowns(),
       updatedAt: new Date().toISOString()
     });
     await gapi.client.sheets.spreadsheets.values.update({
@@ -2069,6 +2185,7 @@ function escHtml(str) {
 // ========== 初期化 ==========
 purgeOldCompletedTodos();
 renderTodos();
+renderCountdowns();
 loadQuickMemo();
 loadWeather();
 loadWorldNews();
