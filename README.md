@@ -90,15 +90,7 @@ function doPost(e) {
     }
 
     var dateStr = data.date || Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy-MM-dd');
-    var rowValues = [
-      dateStr,
-      data.steps || '',
-      data.distance || '',
-      data.activeEnergy || '',
-      data.sleepHours || '',
-      data.heartRate || '',
-      data.weight || ''
-    ];
+    var fieldKeys = ['steps', 'distance', 'activeEnergy', 'sleepHours', 'heartRate', 'weight'];
 
     // 同じ日付の行が既にあれば上書きし、無ければ新規に追加する（同日に複数回実行しても重複しない）
     var lastRow = sheet.getLastRow();
@@ -121,9 +113,20 @@ function doPost(e) {
     }
 
     if (existingRowIndex > 0) {
-      sheet.getRange(existingRowIndex, 1, 1, rowValues.length).setValues([rowValues]);
+      // 睡眠だけ・歩数だけ等、別々のショートカットから分けて送られてくる場合に備え、
+      // 今回の送信に含まれている項目だけ上書きし、含まれていない項目は既存の値を残す
+      var existingValues = sheet.getRange(existingRowIndex, 1, 1, fieldKeys.length + 1).getValues()[0];
+      var updatedValues = [dateStr];
+      fieldKeys.forEach(function(key, idx) {
+        updatedValues.push(data.hasOwnProperty(key) ? data[key] : existingValues[idx + 1]);
+      });
+      sheet.getRange(existingRowIndex, 1, 1, updatedValues.length).setValues([updatedValues]);
     } else {
-      sheet.appendRow(rowValues);
+      var newRowValues = [dateStr];
+      fieldKeys.forEach(function(key) {
+        newRowValues.push(data[key] || '');
+      });
+      sheet.appendRow(newRowValues);
     }
 
     return ContentService.createTextOutput(JSON.stringify({ status: 'ok' }))
