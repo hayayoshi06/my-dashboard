@@ -1965,7 +1965,11 @@ async function loadHealthData() {
       return;
     }
     healthRowsCache = rows.slice(1); // ヘッダー行を除く
-    var last = healthRowsCache[healthRowsCache.length - 1];
+    // 当日の行は、朝の睡眠記録ショートカットが先に実行され、夜の歩数等の自動実行がまだだと
+    // 睡眠時間以外が空欄のままになる。そのため表示は常に「前日分の確定した記録」にする
+    var last = healthRowsCache.length >= 2
+      ? healthRowsCache[healthRowsCache.length - 2]
+      : healthRowsCache[healthRowsCache.length - 1];
     bodyEl.innerHTML =
       '<div class="health-date">' + escHtml(last[0] || '') + ' のデータ（タップで過去14日分を表示）</div>' +
       '<div class="health-grid">' +
